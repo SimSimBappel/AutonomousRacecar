@@ -154,6 +154,7 @@ class MPU6050{
   void getPWR_MGMT1();
   void getPWR_MGMT2();
   
+  void imu_dump();
   void Update_MPU();
 
   void CalibrateAccel();
@@ -315,19 +316,18 @@ void MPU6050::PrintParam()
   // Serial.print(",");
   // Serial.print(" Z =");
   Serial.print(RawGy.Z);
-  Serial.println(",");
-  
-  
+  Serial.println(",");  
 }
+
 void MPU6050::setAccFS(ACC_FS acc_fs)
 {
   T var = *ReadRegister(WhoAMI,ACCEL_CONFIG,1);
-  Serial.println("Setting AccFS...");
-  Serial.println(var);
+  // Serial.println("Setting AccFS...");
+  // Serial.println(var);
   var &= 0b11100111; // clearing the bites associated to Full scale sensitivity
-  Serial.println(var);
+  // Serial.println(var);
   var |= acc_fs<<3; // assigning the desired full scale sensitivity.
-  Serial.println(var);
+  // Serial.println(var);
   WriteRegister(WhoAMI, ACCEL_CONFIG, var); // writing the new value to the register.
   
 
@@ -336,32 +336,32 @@ void MPU6050::setAccFS(ACC_FS acc_fs)
 void MPU6050::setGyFS(GY_FS gy_fs)
 {
   T var = *ReadRegister(WhoAMI,GYRO_CONFIG,1);
-  Serial.println("Setting GyFS...");
-  Serial.println(var);
+  // Serial.println("Setting GyFS...");
+  // Serial.println(var);
   var &= 0b11100111; // clearing the bites associated to Full scale sensitivity
-  Serial.println(var);
+  // Serial.println(var);
   var |= gy_fs<<3; // assigning the desired full scale sensitivity.
-  Serial.println(var);
+  // Serial.println(var);
   WriteRegister(WhoAMI, GYRO_CONFIG, var); // writing the new value to the register.
   
 }
 
 void MPU6050::setPWR_MGMT(T data)
 {
-  Serial.println("SetPWR_MGMT");
+  // Serial.println("SetPWR_MGMT");
   WriteRegister(WhoAMI, PWR_MGMT_1, data);
-  Serial.println(PWR_MGMT_1);
-  Serial.println(data);
+  // Serial.println(PWR_MGMT_1);
+  // Serial.println(data);
 }
 void MPU6050::setDLPF_CFG(DLPF_CFG_ dlpf_cfg)
 {
   T var = *ReadRegister(WhoAMI,CONFIG,1);
-  Serial.println("Setting dlpf_cfg...");
-  Serial.println(var);
+  // Serial.println("Setting dlpf_cfg...");
+  // Serial.println(var);
   var &= 0b11111000; // clearing the bites associated to Full scale sensitivity
-  Serial.println(var);
+  // Serial.println(var);
   var |= dlpf_cfg; // assigning the desired full scale sensitivity.
-  Serial.println(var);
+  // Serial.println(var);
   WriteRegister(WhoAMI, CONFIG, var); // writing the new value to the register.
   
 
@@ -434,6 +434,22 @@ void MPU6050::getDLPF_CFG()
 }
 
 
+void MPU6050::imu_dump(){
+  Serial.print("IMU,");
+  Serial.print(x);
+  Serial.print(",");
+  Serial.print(y);
+  Serial.print(",");
+  Serial.print(z);
+  Serial.print(",");
+  Serial.print(roll);
+  Serial.print(",");
+  Serial.print(pitch);
+  Serial.print(",");
+  Serial.println(yaw);
+}
+
+
 
 MPU6050 mpu6050;
 
@@ -447,7 +463,7 @@ void setup() {
  
   //MPU6050 mpu6050(MPU6050_I2C);
   
-  Serial.println("This begin");
+  // Serial.println("This begin");
   // mpu6050.SelfTestAccX();
   // mpu6050.SelfTestGyX();
   // mpu6050.Update_MPU();
@@ -466,26 +482,9 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  
-
   mpu6050.Update_MPU();
-  // mpu6050.PrintParam();
   mpu6050.returnParam();
-
-
-  // IMU dump
-  Serial.print(x);
-  Serial.print(", ");
-  Serial.print(y);
-  Serial.print(", ");
-  Serial.print(z);
-  Serial.print(", ");
-  Serial.print(roll);
-  Serial.print(", ");
-  Serial.print(pitch);
-  Serial.print(", ");
-  Serial.println(yaw);
+  mpu6050.imu_dump();
 
 
 
@@ -494,6 +493,7 @@ void loop() {
 
 
   
+
   // ensure the correct timing is upheld
   while (millis() - prevMillis < 100){/* DO NOTHING*/}
   time = millis() - prevMillis;
