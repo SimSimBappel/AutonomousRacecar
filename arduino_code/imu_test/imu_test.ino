@@ -22,6 +22,18 @@ int16_t gx, gy, gz;
 
 unsigned long prevMillis = 0;
 int time = 0;
+// char jar[20] = "";
+// int incoming = 0;
+char serialString[10] = "          "; // Empty serial string variable
+bool stringFinished = false; // Flag to indicate reception of a string after terminator is reached
+bool serialTail = false;
+int value;
+
+
+int pwm1 = 0;
+int pwm2 = 0;
+  
+ 
 
 
 void imu_dump(){
@@ -43,13 +55,14 @@ void imu_dump(){
 void setup() {
   Serial.begin(115200);
   Wire.begin();
-
+  pinMode(13, OUTPUT);
   // initialize devices
   // Serial.println("Initializing I2C devices...");
 
   // initialize bmp085
   if (!bmp.begin()) {
     // Serial.println("Could not find a valid BMP085 sensor, check wiring!");
+    digitalWrite(13, HIGH);
     while (1) {}
   }
 
@@ -64,55 +77,112 @@ void setup() {
   // Compass.SetSamplingMode(COMPASS_SINGLE);
   // Compass.SetScale(COMPASS_SCALE_130);
   // Compass.SetOrientation(COMPASS_HORIZONTAL_X_NORTH);
-
+  while(!Serial){}
+  Serial.println();
+  Serial.println("heard,ready");
 
  
 }
 
 void loop() {
-  // Serial.print("Temperature = ");
-  // Serial.print(bmp.readTemperature());
-  // Serial.println(" *C");
-
-  // Serial.print("Pressure = ");
-  // Serial.print(bmp.readPressure());
-  // Serial.println(" Pa");
-  
-  // Calculate altitude assuming 'standard' barometric
-  // pressure of 1013.25 millibar = 101325 Pascal
-  // Serial.print("Altitude = ");
-  // Serial.print(bmp.readAltitude());
-  // Serial.println(" meters");
-  // Serial.print("Pressure at sealevel (calculated) = ");
-  // Serial.print(bmp.readSealevelPressure());
-  // Serial.println(" Pa");
-  // Serial.print("Real altitude = ");
-  // Serial.print(bmp.readAltitude(101500));
-  // Serial.println(" meters");
-
-  
   // read raw accel/gyro measurements from device
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-  
-  // display tab-separated accel/gyro x/y/z values
-
-
-
-  // float heading = Compass.GetHeadingDegrees();
-  // Serial.print("Heading: \t");
-  // Serial.println( heading );
-
-
-
   imu_dump();
+  
+
+  if(stringFinished){
+    // Serial.print("heard,");
+    // Serial.println(serialString);
+    int nonNullCount = 0;
+    bool secondValue = false;
+    pwm1 = 0;
+    pwm2 = 0;
+    
+    for (int i = 0; i < sizeof(serialString); i++) {
+      if (serialString[i] != ' ') {
+        nonNullCount++;
+      }
+    }
+
+    for(int i = 1; i < nonNullCount; i++) {
+      if(serialString[i] == ',') {
+        secondValue = true; // Set flag to true once we encounter the comma
+      } else {
+        if(!secondValue) {
+          pwm1 = pwm1 * 10 + (serialString[i] - '0');
+        } else {
+          pwm2 = pwm2 * 10 + (serialString[i] - '0');
+        }
+      }
+    }
+
+
+    if(serialString[0] == 'm'){
+      //set servo pwm
+      Serial.print("heard,m:");
+      Serial.print(pwm1);
+      Serial.print("s:");
+      Serial.println(pwm2);
+    }
+  
+    
+    if(serialString[0] != 'm' && serialString[0] != 's'){
+      Serial.println("heard,error msg[0]!=known input");
+    }
+
+
+    memset(serialString, ' ', sizeof(serialString));
+    stringFinished = false;
+  }
+
+
+  while(!Serial){
+    // stop the car!
+    digitalWrite(13,HIGH);
+  }
 
 
   // ensure the correct timing is upheld
   while (millis() - prevMillis < 100){/* DO NOTHING*/}
-  time = millis() - prevMillis;
   prevMillis = millis();
+  // time = millis() - prevMillis;
   // Serial.print("time: ");
   // Serial.println(time);
 }
 
 
+
+
+void serialEvent()
+{
+  int idx = 0;
+
+  while (Serial.available())
+  {
+    char inChar = (char)Serial.read();
+
+    if (inChar == '\n')    // The reading event stops at a new line character
+    {
+      serialTail = true;
+      //serialString[idx] = inChar;
+    }
+
+    if(idx > 10){
+      memset(serialString, 0, sizeof(serialString));
+      idx = 0;
+    }
+
+    if (!serialTail)
+    {
+      serialString[idx] = inChar;
+      idx++;
+    }
+
+    if (serialTail)
+    {
+      stringFinished = true;
+      Serial.flush();
+      serialTail = false;
+    }
+  }
+}
