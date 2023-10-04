@@ -89,8 +89,8 @@ def publish_data(n, p, status):
 
 
 
-def send_command(motor = 0, servo = 90):
-    x = "m" + str(motor) + "," + str(servo) + "\n"
+def send_command(motor = 10, servo = 65, direction = 1):
+    x = "m" + str(motor) + "," + str(servo) + "," + str(direction) + "\n"
     ser.write(x.encode()) 
 
 
