@@ -1,39 +1,34 @@
-/*
-  Modified on Mar 16, 2021
-  Modified by MehranMaleki from Arduino Examples
-  https://electro
-  peak.com/learn/
-*/
-
-// #include "I2Cdev.h"
 #include <Wire.h>
 #include "MPU6050.h"
 #include <Adafruit_BMP085.h>
-#include <HMC5883L_Simple.h>
-
+// #include <HMC5883L_Simple.h>
+#include <Servo.h>
 
 MPU6050 accelgyro;
 Adafruit_BMP085 bmp;
-HMC5883L_Simple Compass;
+// HMC5883L_Simple Compass;
 
+#define motorPin 5
+#define backwardDirection 10
+#define forwardDirection 12
+#define warningLED 13
+
+Servo myservo;
 
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
 unsigned long prevMillis = 0;
 int time = 0;
-// char jar[20] = "";
-// int incoming = 0;
 char serialString[10] = "          "; // Empty serial string variable
 bool stringFinished = false; // Flag to indicate reception of a string after terminator is reached
 bool serialTail = false;
 int value;
+int forward = 0;
 
 
 int pwm1 = 0;
 int pwm2 = 0;
-  
- 
 
 
 void imu_dump(){
@@ -53,34 +48,45 @@ void imu_dump(){
 
 
 void setup() {
+  // Serial and i²c init
   Serial.begin(115200);
   Wire.begin();
-  pinMode(13, OUTPUT);
-  // initialize devices
-  // Serial.println("Initializing I2C devices...");
 
-  // initialize bmp085
-  if (!bmp.begin()) {
-    // Serial.println("Could not find a valid BMP085 sensor, check wiring!");
-    digitalWrite(13, HIGH);
-    while (1) {}
+  // led and motor pwm init
+  pinMode(warningLED, OUTPUT);
+  pinMode(motorPin, OUTPUT);
+  pinMode(backwardDirection, OUTPUT);
+  pinMode(forwardDirection, OUTPUT);
+
+  //neutral gear
+  digitalWrite(backwardDirection, LOW);
+  digitalWrite(forwardDirection, LOW);
+
+  // servo init
+  myservo.attach(3); 
+  myservo.write(65);
+
+
+  while(!Serial){
+    digitalWrite(warningLED, HIGH);
   }
+  digitalWrite(warningLED, LOW);
 
   // initialize mpu6050
   accelgyro.initialize();
   // Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
-  accelgyro.setI2CBypassEnabled(true); // set bypass mode for gateway to hmc5883L
-  
-  
-  // initialize hmc5883l
-  // Compass.SetDeclination(23, 35, 'E');
-  // Compass.SetSamplingMode(COMPASS_SINGLE);
-  // Compass.SetScale(COMPASS_SCALE_130);
-  // Compass.SetOrientation(COMPASS_HORIZONTAL_X_NORTH);
-  while(!Serial){}
+  accelgyro.setI2CBypassEnabled(true); // set bypass mode for gateway to hmc5883
+
+
+  // check if IMU is connected 
+  if (!bmp.begin()) {
+    Serial.println("heard,IMU: check wiring!");
+    digitalWrite(warningLED, HIGH);
+    while (1) {}
+  }
+
   Serial.println();
   Serial.println("heard,ready");
-
  
 }
 
@@ -94,7 +100,7 @@ void loop() {
     // Serial.print("heard,");
     // Serial.println(serialString);
     int nonNullCount = 0;
-    bool secondValue = false;
+    int secondValue = 0;
     pwm1 = 0;
     pwm2 = 0;
     
@@ -106,27 +112,46 @@ void loop() {
 
     for(int i = 1; i < nonNullCount; i++) {
       if(serialString[i] == ',') {
-        secondValue = true; // Set flag to true once we encounter the comma
+        secondValue++; // Set flag to true once we encounter the comma
       } else {
-        if(!secondValue) {
+        if(secondValue == 0) {
           pwm1 = pwm1 * 10 + (serialString[i] - '0');
-        } else {
+        } else if(secondValue == 1) {
           pwm2 = pwm2 * 10 + (serialString[i] - '0');
+        }
+        else if(secondValue == 2) {
+          forward = int(serialString[i]);
         }
       }
     }
 
 
     if(serialString[0] == 'm'){
+      //set direction
+      if(forward == 48){ //backward
+        digitalWrite(backwardDirection, HIGH);
+        digitalWrite(forwardDirection, LOW);
+      }
+      else{ //forward
+        digitalWrite(backwardDirection, LOW);
+        digitalWrite(forwardDirection, HIGH);
+      }
+      // Serial.print("heard,forward: ");
+      // Serial.println(forward);
+      analogWrite(motorPin, pwm1);
+
       //set servo pwm
       Serial.print("heard,m:");
       Serial.print(pwm1);
+      
+      //set servo
       Serial.print("s:");
       Serial.println(pwm2);
+      myservo.write(pwm2);
     }
   
     
-    if(serialString[0] != 'm' && serialString[0] != 's'){
+    if(serialString[0] != 'm'){
       Serial.println("heard,error msg[0]!=known input");
     }
 
@@ -136,9 +161,12 @@ void loop() {
   }
 
 
-  while(!Serial){
+  while(!Serial){ //not working
     // stop the car!
-    digitalWrite(13,HIGH);
+    analogWrite(motorPin, 0);
+    digitalWrite(forwardDirection, LOW);
+    digitalWrite(backwardDirection, LOW);
+    digitalWrite(warningLED, HIGH);
   }
 
 
