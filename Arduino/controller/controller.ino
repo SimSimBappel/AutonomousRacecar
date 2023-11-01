@@ -1,12 +1,4 @@
-#include <Wire.h>
-#include "MPU6050.h"
-#include <Adafruit_BMP085.h>
-// #include <HMC5883L_Simple.h>
 #include <Servo.h>
-
-MPU6050 accelgyro;
-Adafruit_BMP085 bmp;
-// HMC5883L_Simple Compass;
 
 #define motorPin 5
 #define backwardDirection 10
@@ -15,11 +7,11 @@ Adafruit_BMP085 bmp;
 
 Servo myservo;
 
-int16_t ax, ay, az;
-int16_t gx, gy, gz;
 
 unsigned long prevMillis = 0;
+unsigned long prevmillis2 = 0;
 int time = 0;
+int timing = 10; //update period (ms)
 char serialString[10] = "          "; // Empty serial string variable
 bool stringFinished = false; // Flag to indicate reception of a string after terminator is reached
 bool serialTail = false;
@@ -28,29 +20,12 @@ int forward = 0;
 
 
 int pwm1 = 0;
-int pwm2 = 0;
-
-
-void imu_dump(){
-  Serial.print("IMU,");
-  Serial.print(ax);
-  Serial.print(",");
-  Serial.print(ay);
-  Serial.print(",");
-  Serial.print(az);
-  Serial.print(",");
-  Serial.print(gx);
-  Serial.print(",");
-  Serial.print(gy);
-  Serial.print(",");
-  Serial.println(gz);
-}
+int angle = 0;
 
 
 void setup() {
-  // Serial and i²c init
+  // Serial
   Serial.begin(115200);
-  Wire.begin();
 
   // led and motor pwm init
   pinMode(warningLED, OUTPUT);
@@ -72,37 +47,20 @@ void setup() {
   }
   digitalWrite(warningLED, LOW);
 
-  // initialize mpu6050
-  accelgyro.initialize();
-  // Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
-  accelgyro.setI2CBypassEnabled(true); // set bypass mode for gateway to hmc5883
-
-
-  // check if IMU is connected 
-  if (!bmp.begin()) {
-    Serial.println("heard,IMU: check wiring!");
-    digitalWrite(warningLED, HIGH);
-    while (1) {}
-  }
 
   Serial.println();
-  Serial.println("heard,ready");
+  Serial.println("I,ready");
  
 }
 
 void loop() {
-  // read raw accel/gyro measurements from device
-  accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-  imu_dump();
-  
-
   if(stringFinished){
-    // Serial.print("heard,");
+    // Serial.print("I,");
     // Serial.println(serialString);
     int nonNullCount = 0;
     int secondValue = 0;
     pwm1 = 0;
-    pwm2 = 0;
+    angle = 0;
     
     for (int i = 0; i < sizeof(serialString); i++) {
       if (serialString[i] != ' ') {
@@ -117,7 +75,7 @@ void loop() {
         if(secondValue == 0) {
           pwm1 = pwm1 * 10 + (serialString[i] - '0');
         } else if(secondValue == 1) {
-          pwm2 = pwm2 * 10 + (serialString[i] - '0');
+          angle = angle * 10 + (serialString[i] - '0');
         }
         else if(secondValue == 2) {
           forward = int(serialString[i]);
@@ -136,23 +94,26 @@ void loop() {
         digitalWrite(backwardDirection, LOW);
         digitalWrite(forwardDirection, HIGH);
       }
-      // Serial.print("heard,forward: ");
+      // Serial.print("I,forward: ");
       // Serial.println(forward);
       analogWrite(motorPin, pwm1);
 
       //set servo pwm
-      Serial.print("heard,m:");
+      Serial.print("I,m:");
       Serial.print(pwm1);
       
       //set servo
       Serial.print("s:");
-      Serial.println(pwm2);
-      myservo.write(pwm2);
+      Serial.println(angle);
+      myservo.write(angle);
+      time = micros() - prevmillis2;
+      Serial.print("Time to set shit: ");
+      Serial.println(time);
     }
   
     
     if(serialString[0] != 'm'){
-      Serial.println("heard,error msg[0]!=known input");
+      Serial.println("I,error msg[0] is unknown");
     }
 
 
@@ -161,21 +122,20 @@ void loop() {
   }
 
 
-  while(!Serial){ //not working
-    // stop the car!
-    analogWrite(motorPin, 0);
-    digitalWrite(forwardDirection, LOW);
-    digitalWrite(backwardDirection, LOW);
-    digitalWrite(warningLED, HIGH);
-  }
-
 
   // ensure the correct timing is upheld
-  while (millis() - prevMillis < 100){/* DO NOTHING*/}
-  prevMillis = millis();
-  // time = millis() - prevMillis;
+  time = millis() - prevMillis;
+  
+  while (millis() - prevMillis < timing){/* DO NOTHING*/}
+
+  if(time > timing){
+    Serial.print("I,Arduino is behind by: ");
+    Serial.println(time - timing);
+  }
+
   // Serial.print("time: ");
   // Serial.println(time);
+  prevMillis = millis();
 }
 
 
@@ -184,6 +144,7 @@ void loop() {
 void serialEvent()
 {
   int idx = 0;
+  prevmillis2 = micros();
 
   while (Serial.available())
   {

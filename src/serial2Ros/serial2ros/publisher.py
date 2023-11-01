@@ -14,7 +14,7 @@ IMU_FRAME = 'IMU'
 data = ''
 
 
-type = ['IMU', 'ENC', 'heard', '']
+type = ['IMU', 'ENC', 'I', '']
 
 def read_serial():
     if ser.in_waiting > 0:
@@ -78,11 +78,17 @@ def publish_data(n, p, status):
                 
                 br.sendTransform(t)
 
-            if type.index(data[0]) == 2: 
+            # encoder data
+            elif type.index(data[0]) == 1:
+                print("a") 
+
+            # warnings
+            elif type.index(data[0]) == 2: 
                 msg = String()
                 msg.data = data[1]
                 status.publish(msg)
-                #print(data)
+
+            
 
     except KeyboardInterrupt:
         ser.close() 
