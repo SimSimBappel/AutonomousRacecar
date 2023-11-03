@@ -3,23 +3,32 @@
 
 #define STK 110
 
-uint8_t intA_pin = 2;
-uint8_t intB_pin = 3;
-uint8_t pwm_pin = 5;
-uint8_t motor_dir = 4;
-uint8_t analog_pin = A0;
+uint8_t intL_pin = 2;
+uint8_t intR_pin = 3;
+
+uint8_t encL_pin = 6;
+uint8_t encR_pin = 5;
+
+uint8_t dirPinA = 10;
+uint8_t dirPinB = 12;
+
+uint8_t pwm_pin = 11;
+
+// uint8_t analog_pin = A0;
+
 struct k_t *p1, *p2, *p3, *p4, *sem1, *sem2, *sem3, *sem4, *semmutex;
 
-struct k_msg_t *pidMsgQ, *potMsgQ, *speedMsgQ;
+struct k_msg_t *cmdMsgQ, *potMsgQ, *speedMsgQ;
 
 
 
 char st1[STK], st2[STK], st3[STK], st4[STK];
 
-volatile long encoderPosition = 0;
+volatile long encoderLPosition = 0;
+volatile long encoderRPosition = 0;
 int err;
 
-struct PID{
+struct CMD{
   float P;
   float I;
   float D;
@@ -32,7 +41,7 @@ struct debug_pack{
   int mo_sp;
 };
 
-PID dataBufForPIDMsgQ[5];
+CMD dataBufForCMDMsgQ[5];
 float dataBufForTargetSpeedMsgQ[5];
 float dataBufForCurrentSpeedMsgQ[5];
 debug_pack dataBufferForDebugMsgQ[5];
@@ -58,28 +67,40 @@ float mapf(float x, float in_min, float in_max, float out_min, float out_max)
 }
 
 // Interrupt function
-void encoderAInterrupt() {
-  //digitalWrite(interrupt_testA,HIGH);
-  
-  if (digitalRead(intA_pin) == digitalRead(6/*intB_pin*/)) { //Skal du ikke bare læse om intA_pin er høj eller lav
-    encoderPosition--;
-  } else {
-    encoderPosition++;
+void encoderLInterrupt() {
+  noInterrupts();
+  if (digitalRead(encL_pin)){
+    encoderLPosition++;
   }
+  else{
+    encoderLPosition--;
+  }
+  interrupts();
   
-  //digitalWrite(interrupt_testA,LOW);
+  // if (digitalRead(intA_pin) == digitalRead(6/*intB_pin*/)) { //Skal du ikke bare læse om intA_pin er høj eller lav
+  //   encoderPosition--;
+  // } else {
+  //   encoderPosition++;
+  // }
+  
 }
 
 // interrupt 2 function
-void encoderBInterrupt() {
-  //digitalWrite(interrupt_testB,HIGH);
-  
-  if (digitalRead(intB_pin) == digitalRead(intA_pin)) {
-    encoderPosition++;
-  } else {
-    encoderPosition--;
+void encoderRInterrupt() {
+  noInterrupts();
+  if (digitalRead(encR_pin)){
+    encoderRPosition++;
   }
-  //digitalWrite(interrupt_testB,LOW);
+  else{
+    encoderRPosition--;
+  }
+  interrupts();
+  
+  // if (digitalRead(intB_pin) == digitalRead(intA_pin)) {
+  //   encoderPosition++;
+  // } else {
+  //   encoderPosition--;
+  // }
 }
 //HS--hvorfor er der to stk ISR
 
@@ -95,16 +116,16 @@ void ReadEncoder()
   int speed_ = 0;
   long now = 0;
   volatile long lastTime_ = 0;
-  int ppr = 500;//2048; // pulses per resolution
+  int ppr = 32;//2048; // pulses per revolution
   k_set_sem_timer(sem1,100);
   while(1)
   {
     k_wait(sem1, 0);
     k_wait(semmutex, 0);
-    setPin(8);
+    // setPin(8);
     
-    position_current = encoderPosition;
-    //Serial.printf("tk: %i\n",encoderPosition);
+    position_current = encoderLPosition;
+    Serial.println(position_current);
 
     position_rad = (float)((M_PI*2*position_current/ppr));
 
@@ -118,12 +139,12 @@ void ReadEncoder()
     
     res = k_send(speedMsgQ, &speed_rad);
     
-    
+    // Serial.println(position_rad);
     position_old = position_current;
     position_old_rad = position_rad;
     lastTime_ = now;
 
-    resetPin(8);
+    // resetPin(8);
     k_signal(semmutex); //Husk at mutexen kun skal dække operationer med delte variable, så tidsrummet i mutex bliver så lille som muligt
     k_sleep(90);
     
@@ -135,8 +156,8 @@ void ReadEncoder()
 void PWM()
 { 
   
-  pinMode(pwm_pin,OUTPUT);
-  pinMode(motor_dir, OUTPUT);
+  // pinMode(pwm_pin,OUTPUT);
+  // pinMode(motor_dir, OUTPUT);
   double previous_error = 0;
   double error_sum = 0;
   double error = 0;
@@ -150,10 +171,10 @@ void PWM()
   long int previousTime = 0;
   double elapsedTime = 0;
   
-  PID pid;
-  pid.P = 0.01;
-  pid.I = 0.005;
-  pid.D = 0.0005;
+  CMD cmd;
+  cmd.P = 0.01;
+  cmd.I = 0.005;
+  cmd.D = 0.0005;
 
   char res1, res2, res3;
   int lost1, lost2, lost3;
@@ -163,12 +184,12 @@ void PWM()
   {
     k_wait(sem2, 0);
     k_wait(semmutex, 0);
-    setPin(9);
+
 
     currentTime = millis();                //get current time
     elapsedTime = (double)(currentTime - previousTime);  
   
-    res1 = k_receive(pidMsgQ, &pid, 1, &lost1);
+    res1 = k_receive(cmdMsgQ, &cmd, 1, &lost1);
     res2 = k_receive(potMsgQ, &goal_speed, 1 ,&lost2);
     res3 = k_receive(speedMsgQ, &speed_rad, 1, &lost3);
     //Serial.print("r");
@@ -179,8 +200,8 @@ void PWM()
     error_sum += error * elapsedTime;  
     derror = (error - previous_error)/elapsedTime;
 
-  // Calculate the motor speed using PID equation
-    speed_ = (pid.P * error) + (pid.I * error_sum) + (pid.D * derror);
+  // Calculate the motor speed using cmd equation
+  //   speed_ = (cmd.P * error) + (cmd.I * error_sum) + (cmd.D * derror);
    
     //Serial.print("s");
     //Serial.println(speed_);
@@ -188,13 +209,33 @@ void PWM()
     motor_speed = (int)(speed_);
     //Serial.print("d");
     //Serial.println(motor_speed);
-   if(speed_ <0 ){
-    digitalWrite(motor_dir,LOW);
+
+    if(speed_ < 0){ //backward
+      // digitalWrite(backwardDirection, HIGH);
+      // digitalWrite(forwardDirection, LOW);
+      resetPin(dirPinA);
+      setPin(dirPinB);
+    }
+    else if(speed_ > 0){ //forward
+      // digitalWrite(backwardDirection, LOW);
+      // digitalWrite(forwardDirection, HIGH);
+      setPin(dirPinA);
+      resetPin(dirPinB);
+    }
+    else{
+      resetPin(dirPinA);
+      resetPin(dirPinB);
+    }
+
+
+
+  //  if(speed_ <0 ){
+  //   digitalWrite(motor_dir,LOW);
     
-   }
-   else if(speed_ >0){
-    digitalWrite(motor_dir,HIGH);
-   }
+  //  }
+  //  else if(speed_ >0){
+  //   digitalWrite(motor_dir,HIGH);
+  //  }
    if(motor_speed > 255){
     motor_speed = 255;
    }
@@ -203,13 +244,12 @@ void PWM()
    }
   
   analogWrite(pwm_pin,motor_speed);
-  //HS -- fin PID regulator
+  //HS -- fin cmd regulator
   
   previous_error = error;
   previousTime = currentTime; 
   //k_eat_msec(100);
 
-  resetPin(9);
   k_signal(semmutex);
   k_sleep(90);
     
@@ -218,37 +258,39 @@ void PWM()
 }
 
 // The read potentiometer task read the potentiometer and calculate the target speed and sending an putting it in the queue
-void ReadPotentiometer()
-{
-  pinMode(analog_pin,INPUT_PULLUP);
-  int goal_speed = 0;
-  float speed_ = 0;
-  int max_speed = 0;
-  char res;
-  k_set_sem_timer(sem3,100);
-  while(1)
-  {
-    k_wait(sem3, 0);
+// void ReadPotentiometer()
+// {
+//   pinMode(analog_pin,INPUT_PULLUP);
+//   int goal_speed = 0;
+//   float speed_ = 0;
+//   int max_speed = 0;
+//   char res;
+//   k_set_sem_timer(sem3,100);
+//   while(1)
+//   {
+//     k_wait(sem3, 0);
 
-    k_wait(semmutex, 0);
+//     k_wait(semmutex, 0);
     
-    setPin(10);
+//     setPin(10);
     
-    goal_speed = map(analogRead(analog_pin),0, 1023, -1000, 1000);
-    speed_ = (float)((goal_speed/100)*2*M_PI);
-    res = k_send(potMsgQ, &speed_);
+//     goal_speed = map(analogRead(analog_pin),0, 1023, -1000, 1000);
+//     speed_ = (float)((goal_speed/100)*2*M_PI);
+//     res = k_send(potMsgQ, &speed_);
 
-    resetPin(10);
-    k_signal(semmutex);
-    k_sleep(90);
-  }
-}
+//     resetPin(10);
+//     k_signal(semmutex);
+//     k_sleep(90);
+//   }
+// }
 
-// the read PID serial check if there are something in the serial buffer to be read, if there is the PID values are then put in the queue
-void ReadPIDSerial()
+// the read cmd serial check if there are something in the serial buffer to be read, if there is the cmd values are then put in the queue
+void ReadSerial()
 {
-  char res;
-  PID pid;
+  bool serialTail = false;
+  bool stringFinished = false; // Flag to indicate reception of a string after terminator is reached
+  char serialString[10] = "          "; // Empty serial string variable
+
   k_set_sem_timer(sem4,1000);
   while(1)
   {
@@ -256,25 +298,36 @@ void ReadPIDSerial()
 
     //setPin(11);
     
-    if(Serial.available()){
-      String serialData = Serial.readStringUntil(',');
-  
-      pid.P = serialData.toFloat();
-      
-  
-      serialData = Serial.readStringUntil(',');
-  
-      pid.I = serialData.toFloat();
-  
-      serialData = Serial.readStringUntil('\n');
-  
-      pid.D = serialData.toFloat();
+    int idx = 0;
+    // prevmillis2 = micros();
 
-      res = k_send(pidMsgQ, &pid);
-  
-      
+    while (Serial.available())
+    {
+      char inChar = (char)Serial.read();
 
-    //Serial.printf("%f,%f,%f\n",pid.P,pid.I,pid.D);
+      if (inChar == '\n')    // The reading event stops at a new line character
+      {
+        serialTail = true;
+        //serialString[idx] = inChar;
+      }
+
+      if(idx > 10){
+        memset(serialString, 0, sizeof(serialString));
+        idx = 0;
+      }
+
+      if (!serialTail)
+      {
+        serialString[idx] = inChar;
+        idx++;
+      }
+
+      if (serialTail)
+      {
+        stringFinished = true;
+        Serial.flush();
+        serialTail = false;
+      }
     }
 
     //resetPin(11);
@@ -288,20 +341,21 @@ void ReadPIDSerial()
 // the setup function set  up the four task, the four timer semerphores and one mutex and threes queue up
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(1000000);
+  Serial.begin(115200);
   while(!Serial)
   {
     
   }
-  for (int x=8; x <=13; x++) pinMode(x,OUTPUT);
-  pinMode(intA_pin,INPUT_PULLUP);
-  pinMode(6,INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(intA_pin),encoderAInterrupt,CHANGE);
-  //attachInterrupt(digitalPinToInterrupt(intB_pin),encoderBInterrupt,CHANGE);
+  // for (int x=8; x <=13; x++) pinMode(x,OUTPUT);
+  // pinMode(intA_pin,INPUT_PULLUP);
+  // pinMode(6,INPUT_PULLUP);
+
+  attachInterrupt(digitalPinToInterrupt(intL_pin),encoderLInterrupt,CHANGE);
+  attachInterrupt(digitalPinToInterrupt(intR_pin),encoderRInterrupt,CHANGE);
 
   k_init(4, 5, 3); // init with space for three tasks
 
-  pidMsgQ = k_crt_send_Q(5, sizeof(PID), dataBufForPIDMsgQ); // size, size of data type, buffer array
+  cmdMsgQ = k_crt_send_Q(5, sizeof(CMD), dataBufForCMDMsgQ); // size, size of data type, buffer array
   potMsgQ = k_crt_send_Q(5, sizeof(float), dataBufForTargetSpeedMsgQ);
   speedMsgQ = k_crt_send_Q(5, sizeof(float), dataBufForCurrentSpeedMsgQ);
   // priority low number higher priority than higher number
@@ -310,9 +364,9 @@ void setup() {
   //Task 2
   p2 = k_crt_task(PWM, 10 , st2, STK); // t1 as task, priority 10, 100 B stak
 
-  p3 = k_crt_task(ReadPotentiometer, 10 , st3, STK);
+  // p3 = k_crt_task(ReadPotentiometer, 10 , st3, STK);
 
-  p4 = k_crt_task(ReadPIDSerial, 11 , st4, STK);
+  p4 = k_crt_task(ReadSerial, 11 , st4, STK);
 
   sem1 = k_crt_sem(0,1);  
 
