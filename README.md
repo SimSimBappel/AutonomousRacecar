@@ -16,7 +16,9 @@ This project aims to create a mockup of an autonomous race car that is capable o
 - Pololu MD01B
 - 9x 18650 cells 3S3P
 
+## Schematic
 
+![Alt text](resources/schematic.png)
 
 
 ## Acknowledgements
