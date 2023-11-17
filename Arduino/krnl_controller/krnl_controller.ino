@@ -40,6 +40,7 @@ struct CMD{
 
 
 
+
 CMD dataBufForCMDMsgQ[5];
 float dataBufForCurrentSpeedMsgQ[5];
 
@@ -97,11 +98,37 @@ void ReadEncoders()
   long lastTime_ = 0; //used to be volatile
   int ppr = 32;//2048; // pulses per revolution
   float speed_rad_old = 0;
-  
+
+  const float wheelRadius = 11.5;  // in centimeters
+  const float wheelBase = 13.0;   // distance between the wheels in centimeters
+
+  float distanceL = 0.0;
+  float distanceR = 0.0;
+
+  // float total_dis = 0.0;
+  // float total_head = 0.0;
 
   // k_set_sem_timer(sem1,100);
   while(1)
   {
+    distanceL = (2 * PI * wheelRadius * encoderLPosition) / 360.0;
+    distanceR = (2 * PI * wheelRadius * encoderRPosition) / 360.0;
+
+    float displacement = (distanceL + distanceR) / 2.0;
+    float heading = (distanceR - distanceL) / wheelBase;
+
+    encoderLPosition = 0;
+    encoderRPosition = 0;
+
+    // total_dis+=displacement;
+    // total_head+=heading;
+    
+
+    // Serial.print("Displacement: ");
+    Serial.print(displacement);
+    Serial.print(" ");
+    Serial.println(heading);
+
     position_current = (encoderLPosition + encoderRPosition) / 2;
 
     // Position in radians
@@ -161,7 +188,6 @@ void PWM()
   while(1)
   {
     k_wait(semmutex, 0);
-
     currentTime = millis();                
     elapsedTime = (double)(currentTime - previousTime);  
 
@@ -366,7 +392,7 @@ void setup() {
   semmutex = k_crt_sem(1, 10);
 
 
-  Serial.println("starting");
+  // Serial.println("starting");
   err = k_start(); // 1 milli sec tick speed
   Serial.print("start error: ");
   Serial.print(err);
