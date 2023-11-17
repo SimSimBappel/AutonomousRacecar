@@ -1,20 +1,15 @@
 import rclpy
-import serial
-import time
-from sensor_msgs.msg import Imu
-from std_msgs.msg import String
-import tf2_ros
 from geometry_msgs.msg import TransformStamped
-import numpy as np
-from tf_transformations import quaternion_about_axis
+import tf_transformations
+import tf2_ros
+import serial
+import math
 
-ser = serial.Serial('/dev/ttyUSB0', 115200)
+# Constants
+SERIAL_PORT = "/dev/ttyUSB0"  # Update with your Arduino serial port
+BAUD_RATE = 115200
 
-IMU_FRAME = 'IMU'
-data = ''
-
-
-type = ['IMU', 'ENC', 'I', '']
+ser = serial.Serial(SERIAL_PORT, BAUD_RATE)
 
 def read_serial():
     if ser.in_waiting > 0:
@@ -22,113 +17,65 @@ def read_serial():
         return line
     return None
 
+def broadcast_transform(x, y, theta, tf_broadcaster):
+    # Create a TransformStamped message
+    transform_msg = TransformStamped()
+    transform_msg.header.stamp = rclpy.clock.Clock().now().to_msg()
+    transform_msg.header.frame_id = "odom"
+    transform_msg.child_frame_id = "base_link"
 
-def publish_data(n, p, status):
-    try:
-        user_input = read_serial()
-        time.sleep(0.01)  # Add a short delay to prevent busy-waiting
-        if user_input is not None:
-            data = user_input.split(",")
-            #print(type.index(data[0]))
-            #print(user_input)
-            if type.index(data[0]) == 0: # if incoming data starts with 'IMU'
-                imu_msg = Imu()
-                imu_msg.header.frame_id = IMU_FRAME
-                #convert data to int, and convert unit to g
-                acc = [int(x) / 16384 for x in data[1:4]]
-                #convert g to m/s²
-                acc[:] = [x * 9.8 for x in acc]
-                
+    # Set translation based on calculated position
+    transform_msg.transform.translation.x = x
+    transform_msg.transform.translation.y = y
+    transform_msg.transform.translation.z = 0.0
 
-                imu_msg.linear_acceleration.x = acc[0]
-                imu_msg.linear_acceleration.y = acc[1]
-                imu_msg.linear_acceleration.z = acc[2]
+    # Set rotation based on calculated orientation
+    quaternion = tf_transformations.quaternion_from_euler(0.0, 0.0, theta)
+    transform_msg.transform.rotation.x = quaternion[0]
+    transform_msg.transform.rotation.y = quaternion[1]
+    transform_msg.transform.rotation.z = quaternion[2]
+    transform_msg.transform.rotation.w = quaternion[3]
 
+    # Broadcast the transform
+    tf_broadcaster.sendTransform(transform_msg)
 
-                gy = [int(x) / 131 for x in data[4:]]
+def update_pose(x, y, theta, displacement, heading):
+    # Update the robot's pose based on odometry data
+    theta += heading
+    x += displacement * math.cos(theta)
+    y += displacement * math.sin(theta)
 
-                imu_msg.angular_velocity.x = gy[0]*0.0174
-                imu_msg.angular_velocity.y = gy[1]*0.0174
-                imu_msg.angular_velocity.z = gy[2]*0.0174
-
-                imu_msg.header.stamp = n.get_clock().now().to_msg()
-
-                p.publish(imu_msg)
-
-
-                accel = acc[0], acc[1], acc[2]
-                ref = np.array([0, 0, 1])
-                acceln = accel / np.linalg.norm(accel)
-                axis = np.cross(acceln, ref)
-                angle = np.arccos(np.dot(acceln, ref))
-                orientation = quaternion_about_axis(angle, axis)
-                br = tf2_ros.TransformBroadcaster(n)
-                t = TransformStamped()
-
-                t.header.stamp = n.get_clock().now().to_msg()
-                t.header.frame_id = "plane"
-                t.child_frame_id = "imu_link"
-                t.transform.translation.x = 0.0
-                t.transform.translation.y = 0.0
-                t.transform.translation.z = 0.0
-                t.transform.rotation.x = orientation[0]
-                t.transform.rotation.y = orientation[1]
-                t.transform.rotation.z = orientation[2]
-                t.transform.rotation.w = orientation[3]
-                
-                br.sendTransform(t)
-
-            # encoder data
-            elif type.index(data[0]) == 1:
-                print("a") 
-
-            # warnings
-            elif type.index(data[0]) == 2: 
-                msg = String()
-                msg.data = data[1]
-                status.publish(msg)
-
-            
-
-    except KeyboardInterrupt:
-        ser.close() 
-
-
-
-def send_command(motor = 10, servo = 65, direction = 1):
-    x = "m" + str(motor) + "," + str(servo) + "," + str(direction) + "\n"
-    ser.write(x.encode()) 
-
-
-
+    return x, y, theta
 
 def main():
     rclpy.init()
-    node = rclpy.create_node('IMU_publisher')
-    prevtime = 0
-    publisher = node.create_publisher(Imu, 'IMU_publisher', 10)
 
-    imu_status = node.create_publisher(String, 'arduino_status', 10)
+    # Create a TF broadcaster
+    tf_broadcaster = tf2_ros.TransformBroadcaster(rclpy.create_node("odometry_listener"))
+
+    # Initial pose of the robot
+    x, y, theta = 0.0, 0.0, 0.0
 
     while rclpy.ok():
-        
-        if ser.in_waiting == 0 and time.monotonic() - prevtime > 0.1:
-            prevtime = time.monotonic()
-            send_command()
-            
+        # Read data from the serial port (adjust parsing logic based on your format)
+        try:
+            serial_data = read_serial()
+            if serial_data is not None:
+                displacement, heading = map(float, serial_data.split(' '))
 
-        publish_data(node, publisher, imu_status)
-                    
-        
-    ser.close() 
-    # node.destroy_node()
-    # rclpy.shutdown()
+                # Update the robot's pose
+                x, y, theta = update_pose(x, y, theta, displacement, heading)
 
+                # Broadcast the transform with the updated pose
+                broadcast_transform(x, y, theta, tf_broadcaster)
 
+        except KeyboardInterrupt:
+            ser.close()
 
+    # Close the serial port when exiting
+    ser.close()
 
-if __name__ == '__main__':
+    rclpy.shutdown()
+
+if __name__ == "__main__":
     main()
-
-
-
