@@ -2,7 +2,7 @@
 #include <math.h>
 #include <Servo.h>
 
-#define STK 200
+#define STK 300
 
 const unsigned int intR_pin = 2;
 const unsigned int intL_pin = 3;
@@ -33,9 +33,8 @@ volatile long encoderRPosition = 0;
 int err;
 
 struct CMD{
-  uint8_t servo_pwm;
-  int motor_pwm; //needs to be changed to understand m/s aka float or double
-  bool dir = 0; //remove
+  float linear = 0;
+  float angular = 0;
 };
 
 
@@ -124,10 +123,9 @@ void ReadEncoders()
     // total_head+=heading;
     
 
-    // Serial.print("Displacement: ");
-    Serial.print(displacement);
-    Serial.print(" ");
-    Serial.println(heading);
+    // Serial.print(displacement);
+    // Serial.print(" ");
+    // Serial.println(heading);
 
     position_current = (encoderLPosition + encoderRPosition) / 2;
 
@@ -172,8 +170,8 @@ void PWM()
 
   
   CMD cmd;
-  cmd.servo_pwm = 60;
-  cmd.motor_pwm = 0;
+  cmd.linear = 0;
+  cmd.angular = 60;
   float P = 1.0; 
   float I = 0.001;
   float D = 0.01;
@@ -195,7 +193,7 @@ void PWM()
 
     res3 = k_receive(speedMsgQ, &speed_rad, 1, &lost3);
     
-    error = cmd.motor_pwm - speed_rad;
+    error = cmd.linear - speed_rad;
     error_sum += error * elapsedTime;  
     derror = (error - previous_error)/elapsedTime;
 
@@ -229,7 +227,7 @@ void PWM()
       motor_speed = 50;
     }
 
-    if(cmd.motor_pwm == 0){
+    if(cmd.linear == 0){
       analogWrite(pwm_pin, 0);
     }
     else{
@@ -237,7 +235,7 @@ void PWM()
     }
   
     
-    steering.write(cmd.servo_pwm);
+    steering.write(cmd.angular);
 
     // Serial.print(" ");
     // Serial.print(speedP);
@@ -268,64 +266,49 @@ void ReadSerial()
 {
   bool serialTail = false;
   bool stringFinished = false; // Flag to indicate reception of a string after terminator is reached
-  char serialString[10] = "          "; // Empty serial string variable
-  int pwm1 = 0;
-  int angle = 90;
-  int forward = 0;
+  char serialString[30] = "";
+  float speed = 0;
+  float angle = 60;
   CMD cmd;
 
   // Takes 256 microseconds worst case
   while(1)
   {
-
     int idx = 0;
     
     while (Serial.available())
     {
+      // char inChar = (char)Serial.read();
       char inChar = (char)Serial.read();
 
       if (inChar == '\n')    // The reading event stops at a new line character
       {
         serialTail = true;
-        int nonNullCount = 0;
         int secondValue = 0;
-        pwm1 = 0;
-        angle = 0;
+        speed = 0.0;
+        angle = 0.0;
         
         for (int i = 0; i < sizeof(serialString); i++) {
-          if (serialString[i] != ' ') {
-            nonNullCount++;
-          }
-        }
-        // Serial.println(serialString);
-        for(int i = 0; i < nonNullCount; i++) {
-          if(serialString[i] == ',') {
-            secondValue++; // Set flag to true once we encounter the comma
-          } else {
-            if(secondValue == 0) {
-              pwm1 = pwm1 * 10 + (serialString[i] - '0');
-            } else if(secondValue == 1) {
-              angle = angle * 10 + (serialString[i] - '0');
+          if (serialString[i] == ',') {
+            char tempchar[10] = "";
+            for(int x = 0; x < i; x++){
+              tempchar[x] = serialString[x];
             }
-            else if(secondValue == 2) { //remove
-              forward = int(serialString[i]); //remove
-            }//remove
+            speed = atof(tempchar);
+            secondValue = i + 1;
+          }
+          if (serialString[i] == ';') {
+            char tempchar[10] = "";
+            for(int y = 0; y < i - secondValue; y++){
+              tempchar[y] = serialString[y + secondValue];
+            }
+            angle = atof(tempchar);
           }
         }
 
-        if(forward == 48){ //remove
-          cmd.dir = false; //reverse //remove
-          pwm1 = -pwm1; //remove
-        }//remove
 
-        cmd.motor_pwm = pwm1;
-        cmd.servo_pwm = angle;
-
-        // Serial.print(cmd.motor_pwm);
-        // Serial.print(",");
-        // Serial.print(cmd.servo_pwm);
-        // Serial.print(",");//remove
-        // Serial.println(cmd.dir);//remove
+        cmd.linear = speed;
+        cmd.angular = angle;
 
         k_send(cmdMsgQ, &cmd);
 
@@ -334,7 +317,7 @@ void ReadSerial()
       }
 
 
-      if(idx > 10){
+      if(idx > 30){
         memset(serialString, ' ', sizeof(serialString));
         idx = 0;
       }

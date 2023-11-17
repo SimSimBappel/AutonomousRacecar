@@ -1,9 +1,10 @@
 import rclpy
-from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import TransformStamped, Twist
 import tf_transformations
 import tf2_ros
 import serial
 import math
+from rclpy.node import Node
 
 # Constants
 SERIAL_PORT = "/dev/ttyUSB0"  # Update with your Arduino serial port
@@ -47,11 +48,31 @@ def update_pose(x, y, theta, displacement, heading):
 
     return x, y, theta
 
+def twist_callback(msg, x, y, theta, tf_broadcaster):
+    linear_x = msg.linear.x
+    angular_z = msg.angular.z
+
+    # Create the command string in the format "linear_x,angular_z"
+    command = f"{linear_x:.2f},{angular_z:.2f};\n"
+
+
+    # Send the command to Arduino
+    ser.write(command.encode())
+
 def main():
     rclpy.init()
 
+    node = rclpy.create_node("serial_bridge")
     # Create a TF broadcaster
-    tf_broadcaster = tf2_ros.TransformBroadcaster(rclpy.create_node("odometry_listener"))
+    tf_broadcaster = tf2_ros.TransformBroadcaster(node)
+
+    # Create a Twist subscriber
+    twist_subscription = node.create_subscription(
+        Twist,
+        '/cmd_vel',
+        lambda msg: twist_callback(msg, x, y, theta, tf_broadcaster),
+        10
+    )
 
     # Initial pose of the robot
     x, y, theta = 0.0, 0.0, 0.0
@@ -68,6 +89,8 @@ def main():
 
                 # Broadcast the transform with the updated pose
                 broadcast_transform(x, y, theta, tf_broadcaster)
+
+            rclpy.spin_once(node, timeout_sec=0.1)
 
         except KeyboardInterrupt:
             ser.close()
