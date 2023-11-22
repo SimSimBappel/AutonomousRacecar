@@ -27,3 +27,7 @@ Supervisior: Andreas Møgelmose
 
 The dataset is Courtesy of: https://www.fsoco-dataset.com/
 
+
+
+<!-- husk at ændre fsd_pathplanning -> config.py to change params -->
+
