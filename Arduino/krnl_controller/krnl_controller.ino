@@ -95,11 +95,11 @@ void ReadEncoders()
   int speed_ = 0;
   long now = 0;
   long lastTime_ = 0; //used to be volatile
-  int ppr = 32;//2048; // pulses per revolution
   float speed_rad_old = 0;
 
-  const float wheelRadius = 11.5;  // in centimeters
-  const float wheelBase = 13.0;   // distance between the wheels in centimeters
+  const int ppr = 32; // pulses per revolution
+  const float wheelRadius = 58;  // in mm
+  const float wheelBase = 260;   // distance between the wheels in mm
 
   float distanceL = 0.0;
   float distanceR = 0.0;
@@ -110,8 +110,9 @@ void ReadEncoders()
   // k_set_sem_timer(sem1,100);
   while(1)
   {
-    distanceL = (2 * PI * wheelRadius * encoderLPosition) / 360.0;
-    distanceR = (2 * PI * wheelRadius * encoderRPosition) / 360.0;
+
+    distanceL = (2 * PI * wheelRadius) * encoderLPosition / ppr;
+    distanceR = (2 * PI * wheelRadius) * encoderRPosition / ppr;
 
     float displacement = (distanceL + distanceR) / 2.0;
     float heading = (distanceR - distanceL) / wheelBase;
@@ -122,10 +123,13 @@ void ReadEncoders()
     // total_dis+=displacement;
     // total_head+=heading;
     
-
-    // Serial.print(displacement);
+    // Serial.print(total_dis);
     // Serial.print(" ");
-    // Serial.println(heading);
+    // Serial.println(total_head);
+
+    Serial.print(displacement);
+    Serial.print(" ");
+    Serial.println(heading);
 
     position_current = (encoderLPosition + encoderRPosition) / 2;
 
@@ -351,6 +355,7 @@ void setup() {
   {
     
   }
+  // Serial.println("im up!");
   pinMode(dirPinA, OUTPUT);
   pinMode(dirPinB, OUTPUT);
   pinMode(pwm_pin, OUTPUT);

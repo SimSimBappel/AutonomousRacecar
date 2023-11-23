@@ -1,10 +1,11 @@
 import rclpy
-from geometry_msgs.msg import TransformStamped, Twist
+from geometry_msgs.msg import TransformStamped, Twist, Point, Quaternion, Vector3
+from nav_msgs.msg import Odometry
+from rclpy.node import Node
 import tf_transformations
 import tf2_ros
 import serial
 import math
-from rclpy.node import Node
 
 # Constants
 SERIAL_PORT = "/dev/ttyUSB0"  # Update with your Arduino serial port
@@ -22,7 +23,7 @@ def broadcast_transform(x, y, theta, tf_broadcaster):
     # Create a TransformStamped message
     transform_msg = TransformStamped()
     transform_msg.header.stamp = rclpy.clock.Clock().now().to_msg()
-    transform_msg.header.frame_id = "odom"
+    transform_msg.header.frame_id = "map"
     transform_msg.child_frame_id = "base_link"
 
     # Set translation based on calculated position
@@ -40,9 +41,32 @@ def broadcast_transform(x, y, theta, tf_broadcaster):
     # Broadcast the transform
     tf_broadcaster.sendTransform(transform_msg)
 
+def publish_odometry(node, odometry_msg, odometry_publisher, x, y, theta):
+    odometry_msg.header.frame_id = 'map'
+    odometry_msg.child_frame_id = 'base'
+
+    # Set the pose information 
+    odometry_msg.pose.pose.position = Point(x=x, y=y, z=0.0)
+    quaternion = tf_transformations.quaternion_from_euler(0.0, 0.0, theta)
+    # odometry_msg.pose.pose.orientation = Quaternion(x=0.0, y=0.0, z=quaternion[2], w=quaternion[3])
+    odometry_msg.pose.pose.orientation.x = quaternion[0]
+    odometry_msg.pose.pose.orientation.y = quaternion[1]
+    odometry_msg.pose.pose.orientation.z = quaternion[2]
+    odometry_msg.pose.pose.orientation.w = quaternion[3]
+
+    # Set the twist information
+    odometry_msg.twist.twist.linear = Vector3(x=1.0, y=0.0, z=0.0)
+    odometry_msg.twist.twist.angular = Vector3(x=0.0, y=0.0, z=0.0)
+
+    # Set the timestamp
+    # odometry_msg.header.stamp = node.get_clock().now().to_msg()
+
+    odometry_publisher.publish(odometry_msg)
+
 def update_pose(x, y, theta, displacement, heading):
     # Update the robot's pose based on odometry data
     theta += heading
+    displacement = displacement / 1000 # From mm to m
     x += displacement * math.cos(theta)
     y += displacement * math.sin(theta)
 
@@ -66,6 +90,9 @@ def main():
     # Create a TF broadcaster
     tf_broadcaster = tf2_ros.TransformBroadcaster(node)
 
+    odometry_publisher = node.create_publisher(Odometry, 'odometry', 10)
+    odometry_msg = Odometry()
+
     # Create a Twist subscriber
     twist_subscription = node.create_subscription(
         Twist,
@@ -88,9 +115,10 @@ def main():
                 x, y, theta = update_pose(x, y, theta, displacement, heading)
 
                 # Broadcast the transform with the updated pose
-                broadcast_transform(x, y, theta, tf_broadcaster)
+                # broadcast_transform(x, y, theta, tf_broadcaster)
+                publish_odometry(node, odometry_msg, odometry_publisher, x, y, theta)
 
-            rclpy.spin_once(node, timeout_sec=0.1)
+            rclpy.spin_once(node, timeout_sec=0.005)
 
         except KeyboardInterrupt:
             ser.close()
