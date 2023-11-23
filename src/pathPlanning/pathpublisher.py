@@ -5,12 +5,15 @@ from visualization_msgs.msg import MarkerArray
 import matplotlib.pyplot as plt
 from fsd_path_planning import PathPlanner, MissionTypes, ConeTypes
 from fsd_path_planning.utils.utils import Timer
-from geometry_msgs.msg import PoseStamped, PoseArray
+from geometry_msgs.msg import PoseStamped, PoseArray, Twist
 import numpy as np
 from nav_msgs.msg import Odometry
-from math import pi
+from math import pi, atan2
+import time
 
 plot = False
+
+# lasttime = 0
 
 class MarkerArraySubscriber(Node):
     cone_observations = [[
@@ -18,13 +21,12 @@ class MarkerArraySubscriber(Node):
     np.array([], dtype=np.float64).reshape(0, 2),#bluecones
     np.array([], dtype=np.float64).reshape(0, 2),#yellowcones
     np.array([], dtype=np.float64).reshape(0, 2),
-    np.array([[1.87387085, 6.18708801],
-              [-1.18862915, 6.37458801],
-              [1.74887085, 5.62458801],
-              [-1.25112915, 5.93708801]])
+    np.array([])
     ]]
     blue_recieved = False
     yellow_recieved = False
+
+    pubTwist = True
 
 
     def __init__(self):
@@ -41,6 +43,9 @@ class MarkerArraySubscriber(Node):
 
         self.pathPublisher = self.create_publisher(PoseArray, 'path', 10)
         self.pose_array = PoseArray()
+
+        self.twistPublisher = self.create_publisher(Twist, 'cmd_vel', 10)
+        self.twist_msg = Twist()
 
         self.bluesubscription = self.create_subscription(
             MarkerArray,
@@ -83,7 +88,13 @@ class MarkerArraySubscriber(Node):
                     cos_theta,
                     sin_theta
         ]])
-        self.plan_path()
+
+        # self.plan_path()
+        # if self.pubTwist:
+        #     self.plan_path()
+        #     self.pubTwist = False
+        # else: 
+        #     self.pubtwist = True
 
 
     def blue_callback(self, msg):
@@ -95,7 +106,6 @@ class MarkerArraySubscriber(Node):
             y = marker.pose.position.y
             self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))
         self.blue_recieved = True
-        # self.plan_path()
 
     
     def yellow_callback(self, msg):
@@ -107,7 +117,6 @@ class MarkerArraySubscriber(Node):
             y = marker.pose.position.y
             self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
         self.yellow_recieved = True
-        # self.plan_path()
 
 
     def path_publisher(self, x, y):
@@ -126,12 +135,30 @@ class MarkerArraySubscriber(Node):
             pose_stamped.pose.orientation.z = np.sin(angle / 2) 
             pose_stamped.pose.orientation.w = np.cos(angle / 2)
 
+            if i == 0:
+                # z=np.sin(angle/2)
+                z = angle
+
+
             self.pose_array.poses.append(pose_stamped.pose)
 
         self.pose_array.header.frame_id = 'map'
         # Publish the PoseArray
         self.pathPublisher.publish(self.pose_array)
         # self.get_logger().info('Path published')
+        return z
+
+
+
+    
+    def twist_publisher(self, linear, angular):
+
+        twist_msg = Twist()
+        twist_msg.linear.x = linear
+        twist_msg.angular.z = angular
+
+        self.twistPublisher.publish(twist_msg)
+        
 
 
     def plan_path(self):
@@ -156,11 +183,35 @@ class MarkerArraySubscriber(Node):
             if timer.intervals[-1] > 0.1:
                         print(f"Frame took {timer.intervals[-1]:.4f} seconds")
 
-            x = out[3:, 1]
-            y = out[3:, 2] 
 
 
-            self.path_publisher(x,y)
+            lookahead = 3
+            x = out[lookahead:, 1]
+            y = out[lookahead:, 2] 
+
+
+            pathdir = self.path_publisher(x,y)
+
+
+            angle = np.arctan2(y[0] - self.car_position[0][1], x[0] - self.car_position[0][0])# - np.pi/2 # angle from car pos to path pos
+
+            car_orientation = atan2(self.car_direction[0][1], self.car_direction[0][0]) #- np.pi / 2
+
+            diff = pathdir - car_orientation # difference of car heading and path heading
+            angle = angle - car_orientation #angle from car to path pos
+
+            if diff < -pi:
+                diff += 2*pi
+
+            heading = (diff + angle) / 2
+            
+            
+            print(f"diff {diff:.2f}, angle{angle:.2f}, heading {heading:.2f}")
+            
+            # print(angle)
+
+
+            self.twist_publisher(0.5, heading)
 
             if plot:
                 bluex_cones = cones[1][:, 0]
@@ -191,8 +242,17 @@ def main(args=None):
     marker_array_subscriber = MarkerArraySubscriber()
     # MarkerArraySubscriber.reset(marker_array_subscriber)
 
+    lasttime = 0.0
+
     while rclpy.ok():
         rclpy.spin_once(marker_array_subscriber, timeout_sec=0.1)
+        # print(time.perf_counter())
+
+        if lasttime + 0.1 < time.perf_counter():
+            lasttime = time.perf_counter()
+            marker_array_subscriber.plan_path()
+            
+
 
     marker_array_subscriber.destroy_node()
     rclpy.shutdown()

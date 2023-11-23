@@ -1,5 +1,5 @@
 import rclpy
-from geometry_msgs.msg import TransformStamped, Twist, Point, Quaternion, Vector3
+from geometry_msgs.msg import TransformStamped, Twist, Point, Vector3
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 import tf_transformations
@@ -66,15 +66,29 @@ def publish_odometry(node, odometry_msg, odometry_publisher, x, y, theta):
 def update_pose(x, y, theta, displacement, heading):
     # Update the robot's pose based on odometry data
     theta += heading
-    displacement = displacement / 1000 # From mm to m
+    displacement = displacement / 100 # From mm to m
     x += displacement * math.cos(theta)
     y += displacement * math.sin(theta)
 
     return x, y, theta
 
-def twist_callback(msg, x, y, theta, tf_broadcaster):
+def map_value(value, from_min, from_max, to_min, to_max):
+    return (value - from_min) * ((to_max - to_min) / (from_max - from_min)) + to_min
+
+def twist_callback(msg):
     linear_x = msg.linear.x
     angular_z = msg.angular.z
+
+    if angular_z > math.pi/4:
+        angular_z = 110
+    elif angular_z < -math.pi/4:
+        angular_z = 20
+    else:
+        angular_z = map_value(angular_z, -math.pi/4, math.pi/4, 20, 110) 
+    #max left:110 max right:20
+
+
+    # print(msg.angular.z)
 
     # Create the command string in the format "linear_x,angular_z"
     command = f"{linear_x:.2f},{angular_z:.2f};\n"
@@ -89,6 +103,7 @@ def main():
     node = rclpy.create_node("serial_bridge")
     # Create a TF broadcaster
     tf_broadcaster = tf2_ros.TransformBroadcaster(node)
+    tf_broadcaster
 
     odometry_publisher = node.create_publisher(Odometry, 'odometry', 10)
     odometry_msg = Odometry()
@@ -97,9 +112,10 @@ def main():
     twist_subscription = node.create_subscription(
         Twist,
         '/cmd_vel',
-        lambda msg: twist_callback(msg, x, y, theta, tf_broadcaster),
+        twist_callback,
         10
     )
+    twist_subscription
 
     # Initial pose of the robot
     x, y, theta = 0.0, 0.0, 0.0
@@ -118,7 +134,7 @@ def main():
                 # broadcast_transform(x, y, theta, tf_broadcaster)
                 publish_odometry(node, odometry_msg, odometry_publisher, x, y, theta)
 
-            rclpy.spin_once(node, timeout_sec=0.005)
+            rclpy.spin_once(node, timeout_sec=0.009)
 
         except KeyboardInterrupt:
             ser.close()

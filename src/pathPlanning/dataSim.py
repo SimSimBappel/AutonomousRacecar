@@ -12,6 +12,8 @@ import numpy as np
 from math import atan2, sin, cos, pi
 from nav_msgs.msg import Odometry
 
+include_odom = False
+
 conecolor={
     "blue": 1,
     "yellow": 2,
@@ -36,15 +38,16 @@ class data_simulation(Node):
         self.odometry_publisher = self.create_publisher(Odometry, 'odometry', 10)
         self.odometry_msg = Odometry()
 
-        self.i = 0
-        while rclpy.ok():
-            self.pub_odom()
-            time.sleep(0.1)
-            
-            if self.i >= 439:
-                self.i = 0
-            else:
-                self.i +=1
+        if include_odom:
+            self.i = 0
+            while rclpy.ok():
+                self.pub_odom()
+                time.sleep(0.1)
+                
+                if self.i >= 439:
+                    self.i = 0
+                else:
+                    self.i +=1
 
 
         # Set the loop rate

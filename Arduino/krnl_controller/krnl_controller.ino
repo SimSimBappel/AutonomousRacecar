@@ -34,7 +34,7 @@ int err;
 
 struct CMD{
   float linear = 0;
-  float angular = 0;
+  int angular = 0;
 };
 
 
@@ -312,7 +312,7 @@ void ReadSerial()
 
 
         cmd.linear = speed;
-        cmd.angular = angle;
+        cmd.angular = int(angle);
 
         k_send(cmdMsgQ, &cmd);
 
