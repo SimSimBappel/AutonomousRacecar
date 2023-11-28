@@ -104,6 +104,7 @@ void ReadEncoders()
   float distanceL = 0.0;
   float distanceR = 0.0;
 
+
   // float total_dis = 0.0;
   // float total_head = 0.0;
 
@@ -129,24 +130,26 @@ void ReadEncoders()
 
     Serial.print(displacement);
     Serial.print(" ");
-    Serial.println(heading);
+    Serial.println(heading); 
 
-    position_current = (encoderLPosition + encoderRPosition) / 2;
+    // position_current = (encoderLPosition + encoderRPosition) / 2;
 
     // Position in radians
-    position_rad = (float)((M_PI*2*position_current/ppr));
+    // position_rad = (float)((M_PI*2*position_current/ppr));
+
+
 
     now = micros();
 
-    speed_ = (position_current-position_old); // tick per second
+    // speed_ = (position_current-position_old); // tick per second
     
-    speed_rad = (float)(((position_rad-position_old_rad)*1000000)/(now-lastTime_));
-    speed_rad_old = speed_rad;
+    speed_rad = (float)(((displacement)*1000000)/(now-lastTime_));
+    // speed_rad_old = speed_rad;
 
     res = k_send(speedMsgQ, &speed_rad);
     
-    position_old = position_current;
-    position_old_rad = position_rad;
+    // position_old = position_current;
+    // displacement_old = displacement;
     lastTime_ = now;
 
     k_signal(semmutex); //Husk at mutexen kun skal dække operationer med delte variable, så tidsrummet i mutex bliver så lille som muligt
@@ -176,8 +179,8 @@ void PWM()
   CMD cmd;
   cmd.linear = 0;
   cmd.angular = 60;
-  float P = 1.0; 
-  float I = 0.001;
+  float P = 35.0; 
+  float I = 0.01; //0.001
   float D = 0.01;
 
   char res1, res2, res3;
@@ -196,7 +199,8 @@ void PWM()
     res1 = k_receive(cmdMsgQ, &cmd, 1, &lost1);
 
     res3 = k_receive(speedMsgQ, &speed_rad, 1, &lost3);
-    
+
+    speed_rad = speed_rad/1000; //to m/s
     error = cmd.linear - speed_rad;
     error_sum += error * elapsedTime;  
     derror = (error - previous_error)/elapsedTime;
@@ -207,9 +211,16 @@ void PWM()
     float speedI = I * error_sum;
     float speedD = D * derror;
 
-    speed_ = speedP + speedI; //+ speedD;
+    speed_ = speedP+ speedI; //+ speedD;
     motor_speed = (int)(speed_);
 
+    // noInterrupts();
+    // Serial.print(cmd.linear);
+    // Serial.print(" ");
+    // Serial.print(speed_rad);
+    // Serial.print(" ");
+    // Serial.println(motor_speed);
+    // interrupts();
     if(speed_ < 0){ //backward
       resetPin(dirPinA);
       setPin(dirPinB);
@@ -231,7 +242,7 @@ void PWM()
       motor_speed = 50;
     }
 
-    if(cmd.linear == 0){
+    if(cmd.linear == 0.0){
       analogWrite(pwm_pin, 0);
     }
     else{
@@ -306,13 +317,14 @@ void ReadSerial()
             for(int y = 0; y < i - secondValue; y++){
               tempchar[y] = serialString[y + secondValue];
             }
-            angle = atof(tempchar);
+            // angle = atof(tempchar);
+            angle = atoi(tempchar);
           }
         }
 
 
         cmd.linear = speed;
-        cmd.angular = int(angle);
+        cmd.angular = angle;
 
         k_send(cmdMsgQ, &cmd);
 

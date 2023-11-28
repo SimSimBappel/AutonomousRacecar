@@ -91,7 +91,9 @@ def twist_callback(msg):
     # print(msg.angular.z)
 
     # Create the command string in the format "linear_x,angular_z"
-    command = f"{linear_x:.2f},{angular_z:.2f};\n"
+    # command = f"{linear_x:.2f},{angular_z:.2f};\n"
+
+    command = f"{linear_x:d},{angular_z:.2f};\n"
 
 
     # Send the command to Arduino
