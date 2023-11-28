@@ -145,6 +145,7 @@ class MarkerArraySubscriber(Node):
         self.pose_array.header.frame_id = 'map'
         # Publish the PoseArray
         self.pathPublisher.publish(self.pose_array)
+        print("path published")
         # self.get_logger().info('Path published')
         return z
 
@@ -163,6 +164,7 @@ class MarkerArraySubscriber(Node):
 
     def plan_path(self):
         if self.blue_recieved and self.yellow_recieved:
+            print("planning stage")
             cones = self.cone_observations[0]
             position = self.car_position[0]
             direction = self.car_direction[0]
