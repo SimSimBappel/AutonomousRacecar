@@ -61,7 +61,7 @@ class SerialBridge(Node):
         odometry_msg.twist.twist.linear = Vector3(x=1.0, y=0.0, z=0.0)
         odometry_msg.twist.twist.angular = Vector3(x=0.0, y=0.0, z=0.0)
 
-        self.odometry_publisher.publish(self.odometry_msg)
+        self.odometry_publisher.publish(odometry_msg)
 
     def update_pose(self, displacement, heading):
         self.theta += heading
@@ -80,6 +80,7 @@ class SerialBridge(Node):
         else:
             angular_z = self.map_value(angular_z, -math.pi/4, math.pi/4, 20, 110)
 
+        print(linear_x)
         command = f"{linear_x:.2f},{angular_z:.2f};\n"
 
         self.ser.write(command.encode())
