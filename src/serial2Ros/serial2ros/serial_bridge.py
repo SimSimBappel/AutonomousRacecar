@@ -5,6 +5,7 @@ from rclpy.node import Node
 import tf_transformations
 import tf2_ros
 import serial
+import serial.tools.list_ports
 import math
 
 class SerialBridge(Node):
@@ -23,6 +24,7 @@ class SerialBridge(Node):
 
         port = self.list_serial_ports()
 
+        print(port)
         self.ser = serial.Serial(port, 115200)
 
     def list_serial_ports(self):
@@ -30,15 +32,15 @@ class SerialBridge(Node):
         port_list = [port.device for port in ports]
 
         if len(port_list) == 1:
-                return port
+                return port_list[0]
         elif len(port_list) > 1:
             print("too many ports:")
             for port in port_list:
                 print(port)
         else:
             print("No serial ports found.")
+            exit(1)
 
-        return port_list
 
     def read_serial(self):
         if self.ser.in_waiting > 0:
