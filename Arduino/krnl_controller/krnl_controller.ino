@@ -10,8 +10,8 @@ const unsigned int intL_pin = 3;
 const unsigned int encR_pin = 4;
 const unsigned int encL_pin = 5;
 
-const unsigned int dirPinA = 10;
-const unsigned int dirPinB = 12;
+const unsigned int dirPinA = 12;
+const unsigned int dirPinB = 10;
 
 const unsigned int pwm_pin = 6;
 
@@ -179,7 +179,7 @@ void PWM()
   CMD cmd;
   cmd.linear = 0;
   cmd.angular = 60;
-  float P = 35.0; 
+  float P = 25.0; 
   float I = 0.01; //0.001
   float D = 0.01;
 
@@ -219,8 +219,9 @@ void PWM()
     // Serial.print(" ");
     // Serial.print(speed_rad);
     // Serial.print(" ");
-    // Serial.println(motor_speed);
+    // Serial.println(motor_speed/10);
     // interrupts();
+
     if(speed_ < 0){ //backward
       resetPin(dirPinA);
       setPin(dirPinB);
@@ -261,6 +262,7 @@ void PWM()
     // Serial.print(" ");
     // Serial.print(speed_rad);
     // Serial.print(" ");
+    
     // if(speed_ < 0){ //backward
     //   Serial.println(-cmd.motor_pwm);
     // }
