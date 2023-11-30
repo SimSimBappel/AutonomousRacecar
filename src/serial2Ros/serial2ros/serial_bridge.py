@@ -49,7 +49,7 @@ class SerialBridge(Node):
 
     def publish_odometry(self):
         self.odometry_msg.header.frame_id = 'map'
-        self.odometry_msg.child_frame_id = 'base'
+        self.odometry_msg.child_frame_id = 'base_link'
 
         self.odometry_msg.pose.pose.position = Point(x=self.x, y=self.y, z=0.0)
         quaternion = tf_transformations.quaternion_from_euler(0.0, 0.0, self.theta)

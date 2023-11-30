@@ -12,13 +12,11 @@ from math import pi, atan2
 import time
 
 
-# lasttime = 0
-
 class MarkerArraySubscriber(Node):
     cone_observations = [[
     np.array([], dtype=np.float64).reshape(0, 2),
-    np.array([], dtype=np.float64).reshape(0, 2),#bluecones
-    np.array([], dtype=np.float64).reshape(0, 2),#yellowcones
+    np.array([], dtype=np.float64).reshape(0, 2), # Bluecones
+    np.array([], dtype=np.float64).reshape(0, 2), # Yellowcones
     np.array([], dtype=np.float64).reshape(0, 2),
     np.array([])
     ]]
@@ -37,7 +35,7 @@ class MarkerArraySubscriber(Node):
             self.odometry_callback, 
             1
         )
-        self.odometry_subscription # prevent unused variable warning
+        self.odometry_subscription 
 
         self.pathPublisher = self.create_publisher(PoseArray, 'path', 10)
         self.pose_array = PoseArray()
@@ -60,6 +58,7 @@ class MarkerArraySubscriber(Node):
             1
         )
         self.yellowsubscription 
+
 
     def reset(self):
         # self.cone_observations = [[
@@ -87,7 +86,6 @@ class MarkerArraySubscriber(Node):
                     sin_theta
         ]])
         self.odometry_recieved = True
-
 
 
     def blue_callback(self, msg):
@@ -139,8 +137,6 @@ class MarkerArraySubscriber(Node):
         return z
 
 
-
-    
     def twist_publisher(self, linear, angular):
         twist_msg = Twist()
         twist_msg.linear.x = linear
@@ -148,13 +144,12 @@ class MarkerArraySubscriber(Node):
 
         self.twistPublisher.publish(twist_msg)
 
-    
 
     def calculate_heading(self, x, y, pathdir, position, direction):
-        angle = np.arctan2(y[0] - position[1], x[0] - position[0])# - np.pi/2 # angle from car pos to path pos
-        car_orientation = atan2(direction[1], direction[0]) #- np.pi / 2
-        diff = pathdir - car_orientation # difference of car heading and path heading
-        angle = angle - car_orientation #angle from car to path pos
+        angle = np.arctan2(y[0] - position[1], x[0] - position[0]) # Angle from car pos to path pos
+        car_orientation = atan2(direction[1], direction[0])
+        diff = pathdir - car_orientation # Difference of car heading and path heading
+        angle = angle - car_orientation # Angle from car to path pos
 
         if diff < -pi:
             diff += 2*pi
@@ -191,32 +186,24 @@ class MarkerArraySubscriber(Node):
             y = out[lookahead:, 2] 
 
             pathdir = self.path_publisher(x,y)
-            
             heading = self.calculate_heading(x, y, pathdir, position, direction)       
-
             self.twist_publisher(0.5, heading)
-
             self.reset()
 
 
 def main(args=None):
     rclpy.init(args=args)
-    # path_planner = PathPlanner(MissionTypes.trackdrive)
     marker_array_subscriber = MarkerArraySubscriber()
-    # MarkerArraySubscriber.reset(marker_array_subscriber)
 
     lasttime = 0.0
 
     while rclpy.ok():
         rclpy.spin_once(marker_array_subscriber, timeout_sec=0.1)
-        # print(time.perf_counter())
 
         if lasttime + 0.1 < time.perf_counter():
             lasttime = time.perf_counter()
             marker_array_subscriber.plan_path()
             
-
-
     marker_array_subscriber.destroy_node()
     rclpy.shutdown()
 

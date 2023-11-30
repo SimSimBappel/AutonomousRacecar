@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import rclpy
 from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray
@@ -21,15 +20,12 @@ conecolor={
 
 
 class data_simulation(Node):
-
     def __init__(self):
         super().__init__('data_simulation')
 
-        # node = rclpy.create_node('marker_array_publisher')
-
         self.cone_observations_json, self.car_position, self.car_direction = self.load_data() 
         print(self.car_direction[0])
-        # Create a publisher for the MarkerArray topic
+       
         self.blueCones = self.create_publisher(MarkerArray, 'blue_cones', 10)
         self.yellowCones = self.create_publisher(MarkerArray, 'yellow_cones', 10)
 
@@ -48,9 +44,6 @@ class data_simulation(Node):
                     self.i = 0
                 else:
                     self.i +=1
-
-
-        # Set the loop rate
 
 
     def load_data(self):   
@@ -86,38 +79,29 @@ class data_simulation(Node):
         return marker
 
 
-   
-
     def publish_marker_array(self):
         # while rclpy.ok():
             # Create a MarkerArray message
         blueArray = MarkerArray()
 
         # Create a Marker message
-        # for i in enumerate(zip())
         for i, (x,y) in enumerate(self.cone_observations_json[0][1]):
-            # print(x,y)
             blueArray.markers.append(self.create_marker(1,x,y,i))
 
         # Update timestamps for the MarkerArray and each Marker
-        # marker_array.header.stamp = node.get_clock().now().to_msg()
         for marker in blueArray.markers:
             marker.header.stamp = self.get_clock().now().to_msg()
 
         # Publish the MarkerArray
         self.blueCones.publish(blueArray)
 
-
         yellowArray = MarkerArray()
 
         # Create a Marker message
-        # for i in enumerate(zip())
         for i, (x,y) in enumerate(self.cone_observations_json[0][2]):
-            # print(x,y)
             yellowArray.markers.append(self.create_marker(2,x,y,i))
 
         # Update timestamps for the MarkerArray and each Marker
-        # marker_array.header.stamp = node.get_clock().now().to_msg()
         for marker in yellowArray.markers:
             marker.header.stamp = self.get_clock().now().to_msg()
 
@@ -154,7 +138,6 @@ def main(args=None):
 
     while rclpy.ok():
         rclpy.spin_once(datasim, timeout_sec=0.1)
-        # datasim.pub_odom()
 
         time.sleep(1)
 
