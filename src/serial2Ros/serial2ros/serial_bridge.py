@@ -21,7 +21,24 @@ class SerialBridge(Node):
         self.update_frequency = 100  # Hz
         self.update_timer = self.create_timer(1.0 / self.update_frequency, self.update_callback)
 
-        self.ser = serial.Serial("/dev/ttyUSB0", 115200)
+        port = self.list_serial_ports()
+
+        self.ser = serial.Serial(port, 115200)
+
+    def list_serial_ports(self):
+        ports = serial.tools.list_ports.comports()
+        port_list = [port.device for port in ports]
+
+        if len(port_list) == 1:
+                return port
+        elif len(port_list) > 1:
+            print("too many ports:")
+            for port in port_list:
+                print(port)
+        else:
+            print("No serial ports found.")
+
+        return port_list
 
     def read_serial(self):
         if self.ser.in_waiting > 0:
@@ -61,7 +78,7 @@ class SerialBridge(Node):
         odometry_msg.twist.twist.linear = Vector3(x=1.0, y=0.0, z=0.0)
         odometry_msg.twist.twist.angular = Vector3(x=0.0, y=0.0, z=0.0)
 
-        self.odometry_publisher.publish(self.odometry_msg)
+        self.odometry_publisher.publish(odometry_msg)
 
     def update_pose(self, displacement, heading):
         self.theta += heading
