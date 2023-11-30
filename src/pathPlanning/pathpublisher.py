@@ -11,7 +11,6 @@ from nav_msgs.msg import Odometry
 from math import pi, atan2
 import time
 
-plot = False
 
 # lasttime = 0
 
@@ -25,8 +24,7 @@ class MarkerArraySubscriber(Node):
     ]]
     blue_recieved = False
     yellow_recieved = False
-
-    pubTwist = True
+    odometry_recieved = False
 
 
     def __init__(self):
@@ -73,7 +71,7 @@ class MarkerArraySubscriber(Node):
         # ]]
         # self.blue_recieved = False
         # self.yellow_recieved = False
-        l=1
+        self.odometry_recieved = False
         
 
     def odometry_callback(self, msg):
@@ -88,19 +86,15 @@ class MarkerArraySubscriber(Node):
                     cos_theta,
                     sin_theta
         ]])
+        self.odometry_recieved = True
 
-        # self.plan_path()
-        # if self.pubTwist:
-        #     self.plan_path()
-        #     self.pubTwist = False
-        # else: 
-        #     self.pubtwist = True
 
 
     def blue_callback(self, msg):
         self.get_logger().info('Received MarkerArray message')
+        self.cone_observations[0][1] = np.array([]).reshape(0, 2)
 
-        for i, marker in enumerate(msg.markers):
+        for marker in msg.markers:
             # Extract x and y coordinates from the marker pose
             x = marker.pose.position.x
             y = marker.pose.position.y
@@ -110,7 +104,7 @@ class MarkerArraySubscriber(Node):
     
     def yellow_callback(self, msg):
         self.get_logger().info('Received MarkerArray message')
-        
+        self.cone_observations[0][2] = np.array([]).reshape(0, 2)
         for marker in msg.markers:
             # Extract x and y coordinates from the marker pose
             x = marker.pose.position.x
@@ -129,40 +123,50 @@ class MarkerArraySubscriber(Node):
             # Calculate heading using np.arctan2
             angle = np.arctan2(y2 - y1, x2 - x1)
             # Create PoseStamped message
-            pose_stamped = PoseStamped() #cant just put in new reference frame needs to be calculated
+            pose_stamped = PoseStamped()
             pose_stamped.pose.position.x = x[i]
             pose_stamped.pose.position.y = y[i]
             pose_stamped.pose.orientation.z = np.sin(angle / 2) 
             pose_stamped.pose.orientation.w = np.cos(angle / 2)
 
             if i == 0:
-                # z=np.sin(angle/2)
                 z = angle
-
-
             self.pose_array.poses.append(pose_stamped.pose)
 
         self.pose_array.header.frame_id = 'map'
-        # Publish the PoseArray
         self.pathPublisher.publish(self.pose_array)
-        # self.get_logger().info('Path published')
+
         return z
 
 
 
     
     def twist_publisher(self, linear, angular):
-
         twist_msg = Twist()
         twist_msg.linear.x = linear
         twist_msg.angular.z = angular
 
         self.twistPublisher.publish(twist_msg)
-        
+
+    
+
+    def calculate_heading(self, x, y, pathdir, position, direction):
+        angle = np.arctan2(y[0] - position[1], x[0] - position[0])# - np.pi/2 # angle from car pos to path pos
+        car_orientation = atan2(direction[1], direction[0]) #- np.pi / 2
+        diff = pathdir - car_orientation # difference of car heading and path heading
+        angle = angle - car_orientation #angle from car to path pos
+
+        if diff < -pi:
+            diff += 2*pi
+
+        heading = (diff + angle) / 2
+
+        return heading
 
 
     def plan_path(self):
-        if self.blue_recieved and self.yellow_recieved:
+        print(f"self.blue_recieved: {self.blue_recieved}, self.yellow_recieved: {self.yellow_recieved}, self.odometry_recieved: {self.odometry_recieved}")
+        if self.blue_recieved and self.yellow_recieved and self.odometry_recieved:
             cones = self.cone_observations[0]
             position = self.car_position[0]
             direction = self.car_direction[0]
@@ -178,58 +182,20 @@ class MarkerArraySubscriber(Node):
             except Exception as e:
                 print(f"Error at frame {e}")
                 raise
-                # results.append(out)
 
             if timer.intervals[-1] > 0.1:
                         print(f"Frame took {timer.intervals[-1]:.4f} seconds")
-
-
 
             lookahead = 3
             x = out[lookahead:, 1]
             y = out[lookahead:, 2] 
 
-
             pathdir = self.path_publisher(x,y)
-
-
-            angle = np.arctan2(y[0] - self.car_position[0][1], x[0] - self.car_position[0][0])# - np.pi/2 # angle from car pos to path pos
-
-            car_orientation = atan2(self.car_direction[0][1], self.car_direction[0][0]) #- np.pi / 2
-
-            diff = pathdir - car_orientation # difference of car heading and path heading
-            angle = angle - car_orientation #angle from car to path pos
-
-            if diff < -pi:
-                diff += 2*pi
-
-            heading = (diff + angle) / 2
             
-            
-            
+            heading = self.calculate_heading(x, y, pathdir, position, direction)       
 
             self.twist_publisher(0.5, heading)
 
-            if plot:
-                bluex_cones = cones[1][:, 0]
-                bluey_cones = cones[1][:, 1] 
-
-                yellowx_cones = cones[2][:, 0]  
-                yellowy_cones = cones[2][:, 1] 
-
-                # fig, ax = plt.subplots(figsize=(10, 8))
-                # fig.clf()
-                plt.clf()
-                plt.scatter(bluex_cones, bluey_cones, c='b', marker='o', label='Cones')
-                plt.scatter(yellowx_cones, yellowy_cones, c='y', marker='o', label='Cones')
-                plt.scatter(x, y, c='g', label='Path')
-                plt.xlabel('X-axis')
-                plt.ylabel('Y-axis')
-                plt.title('Path in Global Frame')
-                plt.legend()
-                # ax.set_aspect('equal')
-                plt.grid(True)
-                plt.pause(0.1)
             self.reset()
 
 
