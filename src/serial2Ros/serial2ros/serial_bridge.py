@@ -12,7 +12,7 @@ class SerialBridge(Node):
         super().__init__('serial_bridge')
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
         self.odometry_publisher = self.create_publisher(Odometry, 'odometry', 10)
-        self.odometry_msg = Odometry()
+        
 
         self.x, self.y, self.theta = 0.0, 0.0, 0.0
 
@@ -48,18 +48,18 @@ class SerialBridge(Node):
         self.tf_broadcaster.sendTransform(transform_msg)
 
     def publish_odometry(self):
-        self.odometry_msg.header.frame_id = 'map'
-        self.odometry_msg.child_frame_id = 'base_link'
+        odometry_msg = Odometry()
+        odometry_msg.header.frame_id = 'map'
+        odometry_msg.child_frame_id = 'base_link'
 
-        self.odometry_msg.pose.pose.position = Point(x=self.x, y=self.y, z=0.0)
+        odometry_msg.pose.pose.position = Point(x=self.x, y=self.y, z=0.0)
         quaternion = tf_transformations.quaternion_from_euler(0.0, 0.0, self.theta)
-        self.odometry_msg.pose.pose.orientation.x = quaternion[0]
-        self.odometry_msg.pose.pose.orientation.y = quaternion[1]
-        self.odometry_msg.pose.pose.orientation.z = quaternion[2]
-        self.odometry_msg.pose.pose.orientation.w = quaternion[3]
-
-        self.odometry_msg.twist.twist.linear = Vector3(x=1.0, y=0.0, z=0.0)
-        self.odometry_msg.twist.twist.angular = Vector3(x=0.0, y=0.0, z=0.0)
+        odometry_msg.pose.pose.orientation.x = quaternion[0]
+        odometry_msg.pose.pose.orientation.y = quaternion[1]
+        odometry_msg.pose.pose.orientation.z = quaternion[2]
+        odometry_msg.pose.pose.orientation.w = quaternion[3]
+        odometry_msg.twist.twist.linear = Vector3(x=1.0, y=0.0, z=0.0)
+        odometry_msg.twist.twist.angular = Vector3(x=0.0, y=0.0, z=0.0)
 
         self.odometry_publisher.publish(self.odometry_msg)
 
