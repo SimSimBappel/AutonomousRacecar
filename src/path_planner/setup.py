@@ -1,11 +1,11 @@
-from setuptools import find_packages, setup
+from setuptools import setup
 
-package_name = 'serial2ros'
+package_name = 'path_planner'
 
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(exclude=['test']),
+    packages=[package_name],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'serial_bridge = serial2ros.serial_bridge:main',
+            'pathplanner = path_planner.pathpublisher:main',
+            'datasim = path_planner.dataSim:main',
         ],
     },
 )

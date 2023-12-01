@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from math import atan2, sin, cos, pi
 from nav_msgs.msg import Odometry
+from ament_index_python import get_package_share_directory
 
 include_odom = False
 
@@ -46,11 +47,13 @@ class data_simulation(Node):
                     self.i +=1
 
 
+
     def load_data(self):   
-        data_path = Path(__file__).parent / "fsg_19_2_laps.json"   
+        package_path = get_package_share_directory('path_planner')
+        data_path = Path(package_path).parents[3] / "resources" / "fsg_19_2_laps.json"
         data = json.loads(data_path.read_text())[:]
 
-        data_path = Path(__file__).parent / "test.json"   
+        data_path = Path(package_path).parents[3] / "resources" / "test.json" 
         data2 = json.loads(data_path.read_text())[:]
 
         positions = np.array([d["car_position"] for d in data])
