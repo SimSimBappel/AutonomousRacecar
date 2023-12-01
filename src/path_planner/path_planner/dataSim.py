@@ -39,7 +39,7 @@ class data_simulation(Node):
             self.i = 0
             while rclpy.ok():
                 self.pub_odom()
-                time.sleep(0.1)
+                time.sleep(0.2)
                 
                 if self.i >= 439:
                     self.i = 0
@@ -132,17 +132,14 @@ class data_simulation(Node):
         self.odometry_publisher.publish(self.odometry_msg)
 
 
-
 def main(args=None):
     rclpy.init(args=args)
     datasim = data_simulation()
 
-    
-
     while rclpy.ok():
         rclpy.spin_once(datasim, timeout_sec=0.1)
 
-        time.sleep(1)
+        # time.sleep(1)
 
     datasim.destroy_node()
     rclpy.shutdown()

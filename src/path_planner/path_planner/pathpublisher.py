@@ -160,7 +160,7 @@ class MarkerArraySubscriber(Node):
 
 
     def plan_path(self):
-        print(f"self.blue_recieved: {self.blue_recieved}, self.yellow_recieved: {self.yellow_recieved}, self.odometry_recieved: {self.odometry_recieved}")
+        # print(f"self.blue_recieved: {self.blue_recieved}, self.yellow_recieved: {self.yellow_recieved}, self.odometry_recieved: {self.odometry_recieved}")
         if self.blue_recieved and self.yellow_recieved and self.odometry_recieved:
             cones = self.cone_observations[0]
             position = self.car_position[0]
@@ -196,7 +196,6 @@ def main(args=None):
     marker_array_subscriber = MarkerArraySubscriber()
 
     lasttime = 0.0
-
     while rclpy.ok():
         rclpy.spin_once(marker_array_subscriber, timeout_sec=0.1)
 
