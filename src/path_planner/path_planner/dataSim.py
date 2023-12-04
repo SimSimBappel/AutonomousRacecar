@@ -11,8 +11,9 @@ import numpy as np
 from math import atan2, sin, cos, pi
 from nav_msgs.msg import Odometry
 from ament_index_python import get_package_share_directory
+import sys
 
-include_odom = False
+
 
 conecolor={
     "blue": 1,
@@ -23,6 +24,7 @@ conecolor={
 class data_simulation(Node):
     def __init__(self):
         super().__init__('data_simulation')
+        self.set_args(sys.argv)
 
         self.cone_observations_json, self.car_position, self.car_direction = self.load_data() 
         print(self.car_direction[0])
@@ -35,7 +37,7 @@ class data_simulation(Node):
         self.odometry_publisher = self.create_publisher(Odometry, 'odometry', 10)
         self.odometry_msg = Odometry()
 
-        if include_odom:
+        if self.include_odom:
             self.i = 0
             while rclpy.ok():
                 self.pub_odom()
@@ -46,6 +48,12 @@ class data_simulation(Node):
                 else:
                     self.i +=1
 
+
+    def set_args(self, args=0):
+        if args[1] == '1':
+            self.include_odom = True
+        else:
+            self.include_odom = False
 
 
     def load_data(self):   
