@@ -7,6 +7,8 @@ import tf2_ros
 import serial
 import serial.tools.list_ports
 import math
+from jtop import jtop
+
 
 class SerialBridge(Node):
     def __init__(self):
@@ -14,7 +16,7 @@ class SerialBridge(Node):
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
         self.odometry_publisher = self.create_publisher(Odometry, 'odometry', 10)
         
-
+        
         self.x, self.y, self.theta = 0.0, 0.0, 0.0
 
         self.create_subscription(Twist, '/cmd_vel', self.twist_callback, 10)
@@ -102,7 +104,13 @@ class SerialBridge(Node):
         print(linear_x)
         command = f"{linear_x:.2f},{angular_z:.2f};\n"
 
-        self.ser.write(command.encode())
+        with jtop() as jetson:
+            # print(f"{jetson.power['rail']['CPU']['volt']/1000}V")
+            if jetson.power['rail']['CPU']['volt']/1000 < 10.0:
+                self.get_logger().error(f"Voltage is too low: {jetson.power['rail']['CPU']['volt']/1000}V")
+                self.ser.write(f"{0.0},{0.0};\n")
+            else:
+                self.ser.write(command.encode())
 
     def map_value(self, value, from_min, from_max, to_min, to_max):
         return (value - from_min) * ((to_max - to_min) / (from_max - from_min)) + to_min
