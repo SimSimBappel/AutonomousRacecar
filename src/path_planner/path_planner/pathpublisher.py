@@ -10,6 +10,7 @@ import numpy as np
 from nav_msgs.msg import Odometry
 from math import pi, atan2
 import time
+from custom_sys_msgs.msg import Cone, ConeDetectionStamped
 
 
 class MarkerArraySubscriber(Node):
@@ -20,8 +21,9 @@ class MarkerArraySubscriber(Node):
     np.array([], dtype=np.float64).reshape(0, 2),
     np.array([])
     ]]
-    blue_recieved = False
-    yellow_recieved = False
+    blue_recieved = False#
+    yellow_recieved = False#
+    cones_recieved = False
     odometry_recieved = False
 
 
@@ -43,7 +45,7 @@ class MarkerArraySubscriber(Node):
         self.twistPublisher = self.create_publisher(Twist, 'cmd_vel', 10)
         self.twist_msg = Twist()
 
-        self.bluesubscription = self.create_subscription(
+        self.bluesubscription = self.create_subscription(#
             MarkerArray,
             'blue_cones',
             self.blue_callback,
@@ -51,13 +53,20 @@ class MarkerArraySubscriber(Node):
         )
         self.bluesubscription  
 
-        self.yellowsubscription = self.create_subscription(
+        self.yellowsubscription = self.create_subscription(#
             MarkerArray,
             'yellow_cones',
             self.yellow_callback,
             1
         )
         self.yellowsubscription 
+
+        self.cones_subscription = self.create_subscription(
+            ConeDetectionStamped,
+            "/cones/positions",
+            self.cones_callback,
+            1
+        )
 
 
     def reset(self):
@@ -88,7 +97,7 @@ class MarkerArraySubscriber(Node):
         self.odometry_recieved = True
 
 
-    def blue_callback(self, msg):
+    def blue_callback(self, msg):#
         self.get_logger().info('Received MarkerArray message')
         self.cone_observations[0][1] = np.array([]).reshape(0, 2)
 
@@ -100,7 +109,7 @@ class MarkerArraySubscriber(Node):
         self.blue_recieved = True
 
     
-    def yellow_callback(self, msg):
+    def yellow_callback(self, msg):#
         self.get_logger().info('Received MarkerArray message')
         self.cone_observations[0][2] = np.array([]).reshape(0, 2)
         for marker in msg.markers:
@@ -109,6 +118,21 @@ class MarkerArraySubscriber(Node):
             y = marker.pose.position.y
             self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
         self.yellow_recieved = True
+
+
+    def cones_callback(self, msg):
+        self.cone_observations[0][1] = np.array([]).reshape(0, 2)
+        self.cone_observations[0][2] = np.array([]).reshape(0, 2)
+        self.get_logger().info("Recieved cone array")
+        for cone in msg.cones:
+            x = cone.location.pose.position.x
+            y = cone.location.pose.position.y
+            
+            if cone.color == 0:
+                self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))
+            elif cone.color == 1:
+                self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
+        self.cones_recieved == True
 
 
     def path_publisher(self, x, y):
@@ -161,7 +185,7 @@ class MarkerArraySubscriber(Node):
 
     def plan_path(self):
         # print(f"self.blue_recieved: {self.blue_recieved}, self.yellow_recieved: {self.yellow_recieved}, self.odometry_recieved: {self.odometry_recieved}")
-        if self.blue_recieved and self.yellow_recieved and self.odometry_recieved:
+        if  self.cones_recieved and self.odometry_recieved: #self.blue_recieved and self.yellow_recieved and
             cones = self.cone_observations[0]
             position = self.car_position[0]
             direction = self.car_direction[0]
