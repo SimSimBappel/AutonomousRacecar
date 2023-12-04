@@ -6,7 +6,7 @@ import os
 
 class PowerMonitor(Node):
     def __init__(self):
-        super().__init__('Power monitor node')
+        super().__init__('Power_monitor_node')
 
         with jtop() as jetson:
             while jetson.ok():

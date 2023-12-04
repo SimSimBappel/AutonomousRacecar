@@ -38,20 +38,5 @@ def generate_launch_description():
             name='rviz2',
             # arguments=['-d' + os.path.join(get_package_share_directory('package_name'), 'config', 'config_file.rviz')]
         ),
-
-        # TimerAction(
-        #     period=10.0,  # adjust this period as needed
-        #     actions=[
-        #         Node(
-        #             package='path_planner',
-        #             executable='datasim',
-        #             name='datasim',
-        #             output='screen',
-        #         ),
-        #     ],
-        # ),
-        
-        
-
         
     ])
