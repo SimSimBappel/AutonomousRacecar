@@ -23,6 +23,14 @@ def generate_launch_description():
             name='serial_bridge',
             output='screen',
         ),
+
+        Node(
+            package='serial2ros',
+            executable='power_monitor',
+            name='power_monitor',
+            output='screen',
+        ),
+
         Node(
             package='rviz2',
             namespace='',

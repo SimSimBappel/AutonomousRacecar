@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'serial_bridge = serial2ros.serial_bridge:main',
+            'power_monitor = serial2ros.power_monitor:main'
         ],
     },
 )
