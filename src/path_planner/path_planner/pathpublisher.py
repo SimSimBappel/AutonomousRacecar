@@ -31,13 +31,21 @@ class MarkerArraySubscriber(Node):
         super().__init__('marker_array_subscriber')
         self.path_planner = PathPlanner(MissionTypes.trackdrive)
 
-        self.odometry_subscription = self.create_subscription(
-            Odometry, 
-            'odometry', 
-            self.odometry_callback, 
+        # self.odometry_subscription = self.create_subscription(
+        #     Odometry, 
+        #     'odometry', 
+        #     self.odometry_callback, 
+        #     1
+        # )
+        # self.odometry_subscription 
+
+        self.pose_subscription = self.create_subscription(
+            PoseStamped, 
+            'robot_pose', 
+            self.pose_callback, 
             1
         )
-        self.odometry_subscription 
+        self.pose_subscription 
 
         self.pathPublisher = self.create_publisher(PoseArray, 'path', 10)
         self.pose_array = PoseArray()
@@ -45,51 +53,66 @@ class MarkerArraySubscriber(Node):
         self.twistPublisher = self.create_publisher(Twist, 'cmd_vel', 10)
         self.twist_msg = Twist()
 
-        self.bluesubscription = self.create_subscription(#
-            MarkerArray,
-            'blue_cones',
-            self.blue_callback,
-            1
-        )
-        self.bluesubscription  
+        # self.bluesubscription = self.create_subscription(#
+        #     MarkerArray,
+        #     'blue_cones',
+        #     self.blue_callback,
+        #     1
+        # )
+        # self.bluesubscription  
 
-        self.yellowsubscription = self.create_subscription(#
-            MarkerArray,
-            'yellow_cones',
-            self.yellow_callback,
-            1
-        )
-        self.yellowsubscription 
+        # self.yellowsubscription = self.create_subscription(#
+        #     MarkerArray,
+        #     'yellow_cones',
+        #     self.yellow_callback,
+        #     1
+        # )
+        # self.yellowsubscription 
 
         self.cones_subscription = self.create_subscription(
             ConeDetectionStamped,
-            "/cones/positions",
+            "cone_detections",
             self.cones_callback,
             1
         )
 
 
     def reset(self):
-        # self.cone_observations = [[
-        #     np.array([], dtype=np.float64).reshape(0, 2),
-        #     np.array([], dtype=np.float64).reshape(0, 2),#bluecones
-        #     np.array([], dtype=np.float64).reshape(0, 2),#yellowcones
-        #     np.array([], dtype=np.float64).reshape(0, 2),
-        #     np.array([])
-        # ]]
-        # self.blue_recieved = False
-        # self.yellow_recieved = False
+    #     # self.cone_observations = [[
+    #     #     np.array([], dtype=np.float64).reshape(0, 2),
+    #     #     np.array([], dtype=np.float64).reshape(0, 2),#bluecones
+    #     #     np.array([], dtype=np.float64).reshape(0, 2),#yellowcones
+    #     #     np.array([], dtype=np.float64).reshape(0, 2),
+    #     #     np.array([])
+    #     # ]]
+    #     # self.blue_recieved = False
+    #     # self.yellow_recieved = False
+        self.cones_recieved = False
         self.odometry_recieved = False
         
 
-    def odometry_callback(self, msg):
+    # def odometry_callback(self, msg):
+    #     self.car_position = np.array([[
+    #                 msg.pose.pose.position.x,
+    #                 msg.pose.pose.position.y
+    #     ]])
+
+    #     cos_theta = 1 - 2 * (msg.pose.pose.orientation.z**2)
+    #     sin_theta = 2 * (msg.pose.pose.orientation.z * msg.pose.pose.orientation.w)
+    #     self.car_direction = np.array([[
+    #                 cos_theta,
+    #                 sin_theta
+    #     ]])
+    #     self.odometry_recieved = True
+
+    def pose_callback(self, msg):
         self.car_position = np.array([[
-                    msg.pose.pose.position.x,
-                    msg.pose.pose.position.y
+                    msg.pose.position.x,
+                    msg.pose.position.y
         ]])
 
-        cos_theta = 1 - 2 * (msg.pose.pose.orientation.z**2)
-        sin_theta = 2 * (msg.pose.pose.orientation.z * msg.pose.pose.orientation.w)
+        cos_theta = 1 - 2 * (msg.pose.orientation.z**2)
+        sin_theta = 2 * (msg.pose.orientation.z * msg.pose.orientation.w)
         self.car_direction = np.array([[
                     cos_theta,
                     sin_theta
@@ -97,42 +120,42 @@ class MarkerArraySubscriber(Node):
         self.odometry_recieved = True
 
 
-    def blue_callback(self, msg):#
-        self.get_logger().info('Received MarkerArray message')
-        self.cone_observations[0][1] = np.array([]).reshape(0, 2)
+    # def blue_callback(self, msg):#
+    #     self.get_logger().info('Received MarkerArray message')
+    #     self.cone_observations[0][1] = np.array([]).reshape(0, 2)
 
-        for marker in msg.markers:
-            # Extract x and y coordinates from the marker pose
-            x = marker.pose.position.x
-            y = marker.pose.position.y
-            self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))
-        self.blue_recieved = True
+    #     for marker in msg.markers:
+    #         # Extract x and y coordinates from the marker pose
+    #         x = marker.pose.position.x
+    #         y = marker.pose.position.y
+    #         self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))
+    #     self.blue_recieved = True
 
     
-    def yellow_callback(self, msg):#
-        self.get_logger().info('Received MarkerArray message')
-        self.cone_observations[0][2] = np.array([]).reshape(0, 2)
-        for marker in msg.markers:
-            # Extract x and y coordinates from the marker pose
-            x = marker.pose.position.x
-            y = marker.pose.position.y
-            self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
-        self.yellow_recieved = True
+    # def yellow_callback(self, msg):#
+    #     self.get_logger().info('Received MarkerArray message')
+    #     self.cone_observations[0][2] = np.array([]).reshape(0, 2)
+    #     for marker in msg.markers:
+    #         # Extract x and y coordinates from the marker pose
+    #         x = marker.pose.position.x
+    #         y = marker.pose.position.y
+    #         self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
+    #     self.yellow_recieved = True
 
 
     def cones_callback(self, msg):
         self.cone_observations[0][1] = np.array([]).reshape(0, 2)
         self.cone_observations[0][2] = np.array([]).reshape(0, 2)
-        self.get_logger().info("Recieved cone array")
-        for cone in msg.cones:
-            x = cone.location.pose.position.x
-            y = cone.location.pose.position.y
-            
-            if cone.color == 0:
+        # self.get_logger().info("Recieved cone array")
+        for cone in msg.cones_with_cov:
+            x = cone.cone.location.x
+            y = cone.cone.location.y
+
+            if cone.cone.color == 1:
                 self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))
-            elif cone.color == 1:
+            elif cone.cone.color == 0:
                 self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
-        self.cones_recieved == True
+        self.cones_recieved = True
 
 
     def path_publisher(self, x, y):
@@ -155,7 +178,7 @@ class MarkerArraySubscriber(Node):
                 z = angle
             self.pose_array.poses.append(pose_stamped.pose)
 
-        self.pose_array.header.frame_id = 'map'
+        self.pose_array.header.frame_id = 'track'
         self.pathPublisher.publish(self.pose_array)
 
         return z
@@ -184,8 +207,9 @@ class MarkerArraySubscriber(Node):
 
 
     def plan_path(self):
-        # print(f"self.blue_recieved: {self.blue_recieved}, self.yellow_recieved: {self.yellow_recieved}, self.odometry_recieved: {self.odometry_recieved}")
+        print(f"self.cones_recieved: {self.cones_recieved}, self.odometry_recieved: {self.odometry_recieved}")
         if  self.cones_recieved and self.odometry_recieved: #self.blue_recieved and self.yellow_recieved and
+            self.get_logger().info("calculating path")
             cones = self.cone_observations[0]
             position = self.car_position[0]
             direction = self.car_direction[0]
@@ -199,11 +223,11 @@ class MarkerArraySubscriber(Node):
                         return_intermediate_results=False,
                     )
             except Exception as e:
-                print(f"Error at frame {e}")
+                self.get_logger().warn(f"Error at frame {e}")
                 raise
 
             if timer.intervals[-1] > 0.1:
-                        print(f"Frame took {timer.intervals[-1]:.4f} seconds")
+                        self.get_logger().info(f"Frame took {timer.intervals[-1]:.4f} seconds")
 
             lookahead = 3
             x = out[lookahead:, 1]
@@ -212,7 +236,7 @@ class MarkerArraySubscriber(Node):
             pathdir = self.path_publisher(x,y)
             heading = self.calculate_heading(x, y, pathdir, position, direction)       
             self.twist_publisher(0.5, heading)
-            self.reset()
+            # self.reset()
 
 
 def main(args=None):

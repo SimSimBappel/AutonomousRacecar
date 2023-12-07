@@ -7,7 +7,7 @@ import tf2_ros
 import serial
 import serial.tools.list_ports
 import math
-from jtop import jtop
+# from jtop import jtop
 
 
 class SerialBridge(Node):
@@ -26,7 +26,6 @@ class SerialBridge(Node):
 
         port = self.list_serial_ports()
 
-        print(port)
         self.ser = serial.Serial(port, 115200)
 
     def list_serial_ports(self):
@@ -36,11 +35,11 @@ class SerialBridge(Node):
         if len(port_list) == 1:
                 return port_list[0]
         elif len(port_list) > 1:
-            print("too many ports:")
-            for port in port_list:
-                print(port)
+            self.get_logger().warn("Too many serial pors")
+            for i, port in enumerate(port_list):
+                self.get_logger().info(f"Port{i}:{port}")
         else:
-            print("No serial ports found.")
+            self.get_logger().error("No serial ports found.")
             exit(1)
 
 
@@ -101,16 +100,19 @@ class SerialBridge(Node):
         else:
             angular_z = self.map_value(angular_z, -math.pi/4, math.pi/4, 20, 110)
 
-        print(linear_x)
         command = f"{linear_x:.2f},{angular_z:.2f};\n"
 
-        with jtop() as jetson:
-            # print(f"{jetson.power['rail']['CPU']['volt']/1000}V")
-            if jetson.power['rail']['CPU']['volt']/1000 < 10.0:
-                self.get_logger().error(f"Voltage is too low: {jetson.power['rail']['CPU']['volt']/1000}V")
-                self.ser.write(f"{0.0},{0.0};\n")
-            else:
-                self.ser.write(command.encode())
+        # with jtop() as jetson:
+        #     if jetson.power['rail']['CPU']['volt']/1000 < 10.0:
+        #         self.get_logger().error(f"Voltage is too low: {jetson.power['rail']['CPU']['volt']/1000}V")
+        #         self.ser.write(f"{0.0},{0.0};\n")
+        #     else:
+        try:
+            self.ser.write(command.encode())
+        except Exception as e:
+            self.get_logger().warn(e)
+            pass
+
 
     def map_value(self, value, from_min, from_max, to_min, to_max):
         return (value - from_min) * ((to_max - to_min) / (from_max - from_min)) + to_min
