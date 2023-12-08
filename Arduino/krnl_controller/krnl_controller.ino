@@ -10,12 +10,14 @@ const unsigned int intL_pin = 3;
 const unsigned int encR_pin = 4;
 const unsigned int encL_pin = 5;
 
-const unsigned int dirPinA = 12;
-const unsigned int dirPinB = 10;
+const unsigned int dirPinA = 10;
+const unsigned int dirPinB = 12;
 
 const unsigned int pwm_pin = 6;
 
-unsigned long timer_prev = 0;
+volatile unsigned long last_msg = 0;
+
+
 
 
 
@@ -35,6 +37,7 @@ int err;
 struct CMD{
   float linear = 0;
   int angular = 0;
+  unsigned long time = 0;
 };
 
 
@@ -128,9 +131,13 @@ void ReadEncoders()
     // Serial.print(" ");
     // Serial.println(total_head);
 
+
+
     Serial.print(displacement);
     Serial.print(" ");
     Serial.println(heading); 
+
+
 
     // position_current = (encoderLPosition + encoderRPosition) / 2;
 
@@ -179,9 +186,17 @@ void PWM()
   CMD cmd;
   cmd.linear = 0;
   cmd.angular = 60;
-  float P = 25.0; 
-  float I = 0.01; //0.001
-  float D = 0.01;
+
+  //old
+  // const float P = 25.0; 
+  // const float I = 0.01;
+  // const float D = 0.01;
+  //new
+  const float P = 50.0; 
+  const float I = 0.05;
+  const float D = 0.01;
+
+  const int maxpwm = 50;
 
   char res1, res2, res3;
   int lost1, lost2, lost3;
@@ -197,21 +212,23 @@ void PWM()
     elapsedTime = (double)(currentTime - previousTime);  
 
     res1 = k_receive(cmdMsgQ, &cmd, 1, &lost1);
-
     res3 = k_receive(speedMsgQ, &speed_rad, 1, &lost3);
 
     speed_rad = speed_rad/1000; //to m/s
     error = cmd.linear - speed_rad;
-    error_sum += error * elapsedTime;  
+    // error_sum += error * elapsedTime;  
     derror = (error - previous_error)/elapsedTime;
 
     // Calculate the motor speed using cmd equation
     // speed_ = (P * error) + (I * error_sum) + (D * derror);
-    float speedP = P * error;
-    float speedI = I * error_sum;
-    float speedD = D * derror;
 
-    speed_ = speedP+ speedI; //+ speedD;
+    //anti windup
+    if(motor_speed < maxpwm){
+      error_sum += error * elapsedTime; 
+    }
+
+    speed_ = (P * error) + (I * error_sum) + (D * derror);
+
     motor_speed = (int)(speed_);
 
     // noInterrupts();
@@ -222,11 +239,11 @@ void PWM()
     // Serial.println(motor_speed/10);
     // interrupts();
 
-    if(speed_ < 0){ //backward
+    if(motor_speed < 0){ //backward
       resetPin(dirPinA);
       setPin(dirPinB);
     }
-    else if(speed_ > 0){ //forward
+    else if(motor_speed > 0){ //forward
       setPin(dirPinA);
       resetPin(dirPinB);
     }
@@ -243,8 +260,10 @@ void PWM()
       motor_speed = 50;
     }
 
-    if(cmd.linear == 0.0){
+    if(cmd.linear == 0.0 || cmd.time + 200 < millis()){
       analogWrite(pwm_pin, 0);
+      resetPin(dirPinA);
+      resetPin(dirPinB);
     }
     else{
       analogWrite(pwm_pin, motor_speed);
@@ -327,6 +346,9 @@ void ReadSerial()
 
         cmd.linear = speed;
         cmd.angular = angle;
+        cmd.time = millis();
+
+        // last_msg = millis();
 
         k_send(cmdMsgQ, &cmd);
 
