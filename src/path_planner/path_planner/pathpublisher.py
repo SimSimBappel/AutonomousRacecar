@@ -53,22 +53,6 @@ class MarkerArraySubscriber(Node):
         self.twistPublisher = self.create_publisher(Twist, 'cmd_vel', 10)
         self.twist_msg = Twist()
 
-        # self.bluesubscription = self.create_subscription(#
-        #     MarkerArray,
-        #     'blue_cones',
-        #     self.blue_callback,
-        #     1
-        # )
-        # self.bluesubscription  
-
-        # self.yellowsubscription = self.create_subscription(#
-        #     MarkerArray,
-        #     'yellow_cones',
-        #     self.yellow_callback,
-        #     1
-        # )
-        # self.yellowsubscription 
-
         self.cones_subscription = self.create_subscription(
             ConeDetectionStamped,
             "cone_detections",
@@ -119,30 +103,6 @@ class MarkerArraySubscriber(Node):
         ]])
         self.odometry_recieved = True
 
-
-    # def blue_callback(self, msg):#
-    #     self.get_logger().info('Received MarkerArray message')
-    #     self.cone_observations[0][1] = np.array([]).reshape(0, 2)
-
-    #     for marker in msg.markers:
-    #         # Extract x and y coordinates from the marker pose
-    #         x = marker.pose.position.x
-    #         y = marker.pose.position.y
-    #         self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))
-    #     self.blue_recieved = True
-
-    
-    # def yellow_callback(self, msg):#
-    #     self.get_logger().info('Received MarkerArray message')
-    #     self.cone_observations[0][2] = np.array([]).reshape(0, 2)
-    #     for marker in msg.markers:
-    #         # Extract x and y coordinates from the marker pose
-    #         x = marker.pose.position.x
-    #         y = marker.pose.position.y
-    #         self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
-    #     self.yellow_recieved = True
-
-
     def cones_callback(self, msg):
         self.cone_observations[0][1] = np.array([]).reshape(0, 2)
         self.cone_observations[0][2] = np.array([]).reshape(0, 2)
@@ -151,10 +111,12 @@ class MarkerArraySubscriber(Node):
             x = cone.cone.location.x
             y = cone.cone.location.y
 
-            if cone.cone.color == 1:
+            if cone.cone.color == 0:
                 self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))
-            elif cone.cone.color == 0:
+            elif cone.cone.color == 1:
                 self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
+
+            self.get_logger().info(f"blue#: {len(self.cone_observations[0][1])}, yellow#: {len(self.cone_observations[0][2])}")
         self.cones_recieved = True
 
 
