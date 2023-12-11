@@ -103,21 +103,62 @@ class MarkerArraySubscriber(Node):
         ]])
         self.odometry_recieved = True
 
-    def cones_callback(self, msg):
+    # def cones_callback(self, msg):
+    #     self.cone_observations[0][1] = np.array([]).reshape(0, 2)
+    #     self.cone_observations[0][2] = np.array([]).reshape(0, 2)
+    #     # self.get_logger().info("Recieved cone array")
+    #     for cone in msg.cones_with_cov:
+    #         x = cone.cone.location.x
+    #         y = cone.cone.location.y
+
+    #         if cone.cone.color == 0:
+    #             self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))
+    #         elif cone.cone.color == 1:
+    #             self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
+
+    #         self.get_logger().info(f"blue#: {len(self.cone_observations[0][1])}, yellow#: {len(self.cone_observations[0][2])}")
+    #     self.cones_recieved = True
+
+
+
+    def cones_callback(self, msg, distance_threshold=0.3):
         self.cone_observations[0][1] = np.array([]).reshape(0, 2)
         self.cone_observations[0][2] = np.array([]).reshape(0, 2)
-        # self.get_logger().info("Recieved cone array")
-        for cone in msg.cones_with_cov:
-            x = cone.cone.location.x
-            y = cone.cone.location.y
+        self.get_logger().info("Received cone array")
+        
+        for cone in msg.cones:
+            x = cone.location.pose.position.x
+            y = cone.location.pose.position.y
+            
+            if cone.color == 0:
+                self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))  # blue cones
+            elif cone.color == 1:
+                self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))  # yellow cones
+        
+        # Filter out close blue cones
+        if len(self.cone_observations[0][1]) > 1:
+            blue_cones = self.cone_observations[0][1]
+            distances_blue = np.linalg.norm(blue_cones[:, np.newaxis, :] - blue_cones, axis=-1)
+            np.fill_diagonal(distances_blue, np.inf)  # Exclude self-distances
+            close_blue_cones = np.any(distances_blue < distance_threshold, axis=1)
+            filtered_blue_cones = blue_cones[~close_blue_cones]
 
-            if cone.cone.color == 0:
-                self.cone_observations[0][1] = np.vstack((self.cone_observations[0][1], np.array([x, y])))
-            elif cone.cone.color == 1:
-                self.cone_observations[0][2] = np.vstack((self.cone_observations[0][2], np.array([x, y])))
+            # Do something with the filtered blue cones, e.g., update observations
+            self.cone_observations[0][1] = filtered_blue_cones
 
-            self.get_logger().info(f"blue#: {len(self.cone_observations[0][1])}, yellow#: {len(self.cone_observations[0][2])}")
-        self.cones_recieved = True
+        # Filter out close yellow cones
+        if len(self.cone_observations[0][2]) > 1:
+            yellow_cones = self.cone_observations[0][2]
+            distances_yellow = np.linalg.norm(yellow_cones[:, np.newaxis, :] - yellow_cones, axis=-1)
+            np.fill_diagonal(distances_yellow, np.inf)  # Exclude self-distances
+            close_yellow_cones = np.any(distances_yellow < distance_threshold, axis=1)
+            filtered_yellow_cones = yellow_cones[~close_yellow_cones]
+
+            # Do something with the filtered yellow cones, e.g., update observations
+            self.cone_observations[0][2] = filtered_yellow_cones
+
+        self.cones_received = True  # Note: Fixed the assignment operator from '==' to '='
+
 
 
     def path_publisher(self, x, y):
