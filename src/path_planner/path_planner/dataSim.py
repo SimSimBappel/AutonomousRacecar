@@ -70,6 +70,15 @@ class data_simulation(Node):
             [np.array(c).reshape(-1, 2) for c in d["slam_cones"]] for d in data2
         ]
 
+        scale = 1/3
+
+        positions = [[x * scale for x in row] for row in positions]
+
+        cone_observations[0][1] = [[x * scale for x in row] for row in cone_observations[0][1]]
+        cone_observations[0][2] = [[x * scale for x in row] for row in cone_observations[0][2]]
+
+        # cone_observations[0][1] = np.array([]).reshape(0, 2)
+
         return cone_observations, positions, directions
         
 
@@ -77,11 +86,11 @@ class data_simulation(Node):
         marker = Marker()
         marker.header = Header()
         marker.id = i
-        marker.header.frame_id = "map"
+        marker.header.frame_id = "track"
         marker.type = Marker.CYLINDER
         marker.action = Marker.ADD
         marker.pose = Pose(position=Point(x=x_coord, y=y_coord, z=0.5), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0))
-        marker.scale = Vector3(x=1.0, y=1.0, z=1.0)
+        marker.scale = Vector3(x=0.3, y=0.3, z=0.3)
         if color == conecolor["blue"]:
             marker.color = ColorRGBA(r=0.0, g=0.0, b=1.0, a=1.0)
         else:
@@ -121,7 +130,7 @@ class data_simulation(Node):
 
     def pub_odom(self):
         print(f"Iteration: {self.i}")
-        self.odometry_msg.header.frame_id = 'map'
+        self.odometry_msg.header.frame_id = 'track'
         self.odometry_msg.child_frame_id = 'base'
 
         # Set the pose information 
