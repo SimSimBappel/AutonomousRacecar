@@ -52,7 +52,7 @@ class SerialBridge(Node):
     def broadcast_transform(self):
         transform_msg = TransformStamped()
         transform_msg.header.stamp = self.get_clock().now().to_msg()
-        transform_msg.header.frame_id = "map"
+        transform_msg.header.frame_id = "track"
         transform_msg.child_frame_id = "base_link"
 
         transform_msg.transform.translation.x = self.x
@@ -69,7 +69,7 @@ class SerialBridge(Node):
 
     def publish_odometry(self):
         odometry_msg = Odometry()
-        odometry_msg.header.frame_id = 'map'
+        odometry_msg.header.frame_id = 'track'
         odometry_msg.child_frame_id = 'base_link'
 
         odometry_msg.pose.pose.position = Point(x=self.x, y=self.y, z=0.0)
@@ -85,7 +85,7 @@ class SerialBridge(Node):
 
     def update_pose(self, displacement, heading):
         self.theta += heading
-        displacement = displacement / 1000  # From mm to m
+        displacement = displacement / 1000  # From mm to m #has to be 1000
         self.x += displacement * math.cos(self.theta)
         self.y += displacement * math.sin(self.theta)
 
@@ -124,7 +124,7 @@ class SerialBridge(Node):
                 displacement, heading = map(float, serial_data.split(' '))
                 self.update_pose(displacement, heading)
                 self.publish_odometry()
-                self.broadcast_transform()
+                # self.broadcast_transform()
         except KeyboardInterrupt:
             self.ser.close()
 
