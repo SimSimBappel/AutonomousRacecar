@@ -4,6 +4,8 @@
 
 #define STK 300
 
+#define ARRAY_SIZE 5
+
 const unsigned int intR_pin = 2;
 const unsigned int intL_pin = 3;
 
@@ -107,6 +109,8 @@ void ReadEncoders()
   float distanceL = 0.0;
   float distanceR = 0.0;
 
+  float speed_arr[ARRAY_SIZE] = {0.0};
+  int currentIndex = 0;
 
   // float total_dis = 0.0;
   // float total_head = 0.0;
@@ -151,9 +155,23 @@ void ReadEncoders()
     // speed_ = (position_current-position_old); // tick per second
     
     speed_rad = (float)(((displacement)*1000000)/(now-lastTime_));
+
+    speed_arr[currentIndex] = speed_rad;
+
+    // Increment the index and wrap around if necessary
+    currentIndex = (currentIndex + 1) % ARRAY_SIZE;
+
+    // Calculate the average
+    float sum = 0.0;
+    for (int i = 0; i < ARRAY_SIZE; ++i) {
+      sum += speed_arr[i];
+    }
+    float average = sum / ARRAY_SIZE;
+
+
     // speed_rad_old = speed_rad;
 
-    res = k_send(speedMsgQ, &speed_rad);
+    res = k_send(speedMsgQ, &average);
     
     // position_old = position_current;
     // displacement_old = displacement;

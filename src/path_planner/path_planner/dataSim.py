@@ -70,7 +70,7 @@ class data_simulation(Node):
             [np.array(c).reshape(-1, 2) for c in d["slam_cones"]] for d in data2
         ]
 
-        scale = 1/3
+        scale = 1/2
 
         positions = [[x * scale for x in row] for row in positions]
 
